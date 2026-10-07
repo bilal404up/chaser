@@ -1,16 +1,17 @@
 import { redirect } from "next/navigation";
+import AppHeader from "@/components/AppHeader";
+import Board, { type InvoiceRow } from "@/components/Board";
 import { currentUser } from "@/lib/auth";
 import { userClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
-import { Board, type InvoiceRow } from "@/components/Board";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Invoices | Chaser" };
 
-export default async function Dashboard() {
+export default async function DashboardPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
 
+  // Runs as the signed-in user, so row-level security limits it to their own invoices.
   const { data, error } = await userClient()
     .from("ch_invoices")
     .select("id, client_name, amount_cents, issued_on, due_on, status, paid_on, notes")
@@ -19,14 +20,16 @@ export default async function Dashboard() {
   return (
     <>
       <AppHeader name={user.profile.display_name} plan={user.profile.plan} admin={user.profile.is_admin} current="dashboard" />
-      <main className="mx-auto max-w-[1100px] px-4 py-8 sm:px-6">
-        <h1 className="mb-1 text-[30px] leading-9">Invoices</h1>
-        <p className="mb-6 max-w-[60ch] text-[15px] leading-[22px] text-ink-muted">What you are owed, oldest first. Write a reminder for anything overdue, then mark it paid when the money lands.</p>
-        {error ? (
-          <p role="alert" className="rounded-md border border-error bg-paper-raised p-4 text-[15px] text-error">Could not load your invoices. Reload the page.</p>
-        ) : (
-          <Board invoices={(data ?? []) as InvoiceRow[]} plan={user.profile.plan} senderName={user.profile.display_name} />
-        )}
+      <main id="main" className="pb-16">
+        <div className="wrap pt-8">
+          <h1 className="t-section text-chalk">Invoices</h1>
+          {error ? (
+            <p role="alert" className="chip-error mt-4">
+              Could not load your invoices. Reload the page.
+            </p>
+          ) : null}
+        </div>
+        <Board invoices={(data ?? []) as InvoiceRow[]} plan={user.profile.plan} senderName={user.profile.display_name} />
       </main>
     </>
   );

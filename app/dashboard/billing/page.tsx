@@ -1,63 +1,98 @@
 import { redirect } from "next/navigation";
+import AppHeader from "@/components/AppHeader";
+import BillingActions from "@/components/BillingActions";
+import { SeverityLadder } from "@/components/ink";
+import { formatDay } from "@/lib/dates";
 import { currentUser } from "@/lib/auth";
-import { AppHeader } from "@/components/AppHeader";
-import { BillingActions } from "@/components/BillingActions";
 import { billingConfigured } from "@/lib/stripe";
 import { proSwitchAvailable } from "@/lib/demo";
-import { FREE_OPEN_LIMIT } from "@/lib/plan";
-import { formatDay } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Plan | Chaser" };
 
-export default async function Billing({ searchParams }: { searchParams: { checkout?: string } }) {
+type Search = { checkout?: string };
+
+export default async function BillingPage({ searchParams }: { searchParams: Search }) {
   const user = await currentUser();
   if (!user) redirect("/login");
   const p = user.profile;
+  const pro = p.plan === "pro";
+  const renews = pro && p.current_period_end ? formatDay(p.current_period_end.slice(0, 10)) : null;
 
   return (
     <>
       <AppHeader name={p.display_name} plan={p.plan} admin={p.is_admin} current="billing" />
-      <main className="mx-auto max-w-[1100px] px-4 py-8 sm:px-6">
-        <h1 className="mb-1 text-[30px] leading-9">Plan</h1>
-        <p className="mb-6 text-[15px] leading-[22px] text-ink-muted">
-          You are on <strong className="text-ink">{p.plan === "pro" ? "Pro" : "Free"}</strong>
-          {p.plan === "pro" && p.current_period_end ? `. Renews ${formatDay(p.current_period_end.slice(0, 10))}.` : "."}
+      <main id="main" className="wrap pb-16 pt-8">
+        <h1 className="t-title text-tape">Plan</h1>
+        <p className="mt-3 text-chalk">
+          {pro ? "You are on Pro." : "You are on Free."}
+          {renews ? ` Renews ${renews}.` : ""}
         </p>
-        {searchParams.checkout === "success" && (
-          <p role="status" className="mb-6 rounded-sm border border-teal bg-teal-50 px-3 py-2 text-[14px] text-teal">
+
+        {searchParams.checkout === "success" ? (
+          <p role="status" className="paper mt-6 max-w-copy p-4 text-ink">
             Thanks. Your plan updates as soon as Stripe confirms the payment. Reload in a few seconds if it still says Free.
           </p>
-        )}
-        {searchParams.checkout === "cancelled" && <p className="mb-6 text-[14px] text-ink-muted">Checkout was cancelled. Nothing was charged.</p>}
+        ) : null}
+        {searchParams.checkout === "cancelled" ? (
+          <p role="status" className="paper mt-6 max-w-copy p-4 text-ink">
+            Checkout was cancelled. Nothing was charged.
+          </p>
+        ) : null}
 
-        <div className="mb-8 grid max-w-[760px] gap-4 sm:grid-cols-2">
-          <section className={`rounded-md border bg-paper-raised p-5 ${p.plan === "free" ? "border-ink" : "border-line"}`} aria-label="Free plan">
-            <h2 className="text-[22px] leading-7">Free</h2>
-            <p className="num mt-1 text-[28px] leading-8">$0</p>
-            <ul className="mt-3 space-y-1 text-[15px] leading-[22px] text-ink-muted">
-              <li>Up to {FREE_OPEN_LIMIT} open invoices</li>
+        <section aria-label="Plans" className="mt-10 grid gap-8 md:grid-cols-[minmax(0,22rem)_minmax(0,26rem)] md:items-start md:gap-0">
+          <div className="plan-strip md:mt-16">
+            <div className="flex items-center justify-between gap-3">
+              <p className="t-strong">Free</p>
+              {!pro ? <span className="t-micro rounded-cut bg-ink px-2 py-1 text-tape">Current plan</span> : null}
+            </div>
+            <p className="fig-md mt-2">$0</p>
+            <ul className="mt-6 space-y-2">
+              <li>Up to 5 open invoices</li>
               <li>Overdue list and reminder writer</li>
               <li>No CSV export</li>
             </ul>
-          </section>
-          <section className={`rounded-md border bg-paper-raised p-5 ${p.plan === "pro" ? "border-ink" : "border-line"}`} aria-label="Pro plan">
-            <h2 className="text-[22px] leading-7">Pro</h2>
-            <p className="num mt-1 text-[28px] leading-8">$9<span className="text-[15px] text-ink-subtle"> a month</span></p>
-            <ul className="mt-3 space-y-1 text-[15px] leading-[22px] text-ink-muted">
+          </div>
+
+          <div className="plan-strip plan-strip--pro relative z-10 md:-ml-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="t-strong">Pro</p>
+              {pro ? <span className="t-micro rounded-cut bg-carbon px-2 py-1 text-tape">Current plan</span> : null}
+            </div>
+            <p className="fig-md mt-2">
+              $9 <span className="t-small font-body text-ink-muted">a month</span>
+            </p>
+            <ul className="mt-6 space-y-2">
               <li>Unlimited open invoices</li>
               <li>CSV export of every invoice</li>
-              <li>Everything in Free</li>
+              <li>Overdue list and reminder writer</li>
             </ul>
-            {p.plan === "pro" && (
-              <p className="mt-3">
-                <a href="/api/invoices/export" className="btn-small">Download CSV</a>
-              </p>
-            )}
-          </section>
-        </div>
+            {pro ? (
+              <a href="/api/invoices/export" className="btn btn-secondary mt-6">
+                Download CSV
+              </a>
+            ) : null}
+          </div>
+        </section>
 
-        <BillingActions plan={p.plan} hasCustomer={!!p.stripe_customer_id} billingReady={billingConfigured()} proSwitch={proSwitchAvailable()} />
+        <section aria-labelledby="billing-title" className="pad mt-10 max-w-[40rem]">
+          <h2 id="billing-title" className="t-section">
+            Billing
+          </h2>
+          <div className="mt-5">
+            <BillingActions plan={p.plan} hasCustomer={!!p.stripe_customer_id} billingReady={billingConfigured()} proSwitch={proSwitchAvailable()} />
+          </div>
+        </section>
+
+        <section aria-labelledby="legend-title" className="mt-16 grid gap-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-16">
+          <div>
+            <h2 id="legend-title" className="t-section text-tape">
+              How a strip reads
+            </h2>
+            <p className="mt-3 max-w-[30ch] text-chalk">Paper ages, the tear gets rougher, and the number gets louder. The stamp tells you which tone the reminder will take.</p>
+          </div>
+          <SeverityLadder className="[--list-gap:12px]" />
+        </section>
       </main>
     </>
   );

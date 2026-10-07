@@ -1,13 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatUsd, parseAmountToCents } from "@/lib/money";
 import { daysOverdue, formatDay, todayIso } from "@/lib/dates";
-import { reminderText, suggestedTone, TONES, type Tone } from "@/lib/reminders";
-import { FREE_OPEN_LIMIT, type Plan } from "@/lib/plan";
+import { reminderText, suggestedTone, TONES } from "@/lib/reminders";
+import { FREE_OPEN_LIMIT } from "@/lib/plan";
+import {
+  BlankRoll,
+  Check,
+  ClearSpike,
+  FinalBox,
+  FirmRing,
+  PaidStamp,
+  figureClass,
+  figureFor,
+  figureLabel,
+  tierFor,
+  type CSSVars,
+} from "@/components/ink";
 
-export interface InvoiceRow {
+export type InvoiceRow = {
   id: string;
   client_name: string;
   amount_cents: number;
@@ -16,265 +30,512 @@ export interface InvoiceRow {
   status: "open" | "paid";
   paid_on: string | null;
   notes: string;
-}
+};
 
-function severity(days: number): { label: string; box: string } {
-  if (days >= 30) return { label: "bg-severe-50 text-severe border-severe", box: "text-severe" };
-  if (days >= 8) return { label: "bg-late-50 text-late border-late", box: "text-late" };
-  return { label: "bg-amber-50 text-amber border-amber", box: "text-amber" };
-}
+type Props = { invoices: InvoiceRow[]; plan: "free" | "pro"; senderName: string };
+type Row = InvoiceRow & { days: number };
+type Tone = "friendly" | "firm" | "final";
 
-async function call(path: string, method: string, body?: unknown): Promise<{ ok: boolean; error?: string }> {
+const NETWORK_ERROR = "Could not reach the server. Check your connection and try again.";
+
+const countText = (n: number) => (n === 1 ? "1 invoice" : `${n} invoices`);
+const sum = (rows: Row[]) => rows.reduce((s, r) => s + r.amount_cents, 0);
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+async function errorText(res: Response) {
+  const text = await res.text();
   try {
-    const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-    const data = await res.json().catch(() => ({}));
-    return res.ok ? { ok: true } : { ok: false, error: data.error ?? "Something went wrong." };
+    const data = JSON.parse(text);
+    return String(data.error ?? data.message ?? text);
   } catch {
-    return { ok: false, error: "Could not reach the server. Try again." };
+    return text || `Request failed (${res.status}).`;
   }
 }
 
-export function Board({ invoices, plan, senderName }: { invoices: InvoiceRow[]; plan: Plan; senderName: string }) {
+function plusDays(iso: string, n: number) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export default function Board({ invoices, plan, senderName }: Props) {
   const router = useRouter();
   const today = todayIso();
-  const [reminderFor, setReminderFor] = useState<InvoiceRow | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const rows: Row[] = invoices.map((i) => ({ ...i, days: daysOverdue(i.due_on, today) }));
+  const late = rows.filter((r) => r.status === "open" && r.days > 0).sort((a, b) => b.days - a.days);
+  const upcoming = rows.filter((r) => r.status === "open" && r.days <= 0).sort((a, b) => a.due_on.localeCompare(b.due_on));
+  const paidAll = rows.filter((r) => r.status === "paid").sort((a, b) => (b.paid_on ?? "").localeCompare(a.paid_on ?? ""));
+  const paid = paidAll.slice(0, 8);
+  const paidThisMonth = paidAll.filter((r) => (r.paid_on ?? "").startsWith(today.slice(0, 7)));
+  const open = late.length + upcoming.length;
 
-  const open = useMemo(() => invoices.filter((i) => i.status === "open"), [invoices]);
-  const late = open.filter((i) => daysOverdue(i.due_on, today) > 0).sort((a, b) => daysOverdue(b.due_on, today) - daysOverdue(a.due_on, today));
-  const upcoming = open.filter((i) => daysOverdue(i.due_on, today) <= 0).sort((a, b) => a.due_on.localeCompare(b.due_on));
-  const paid = invoices.filter((i) => i.status === "paid").sort((a, b) => (b.paid_on ?? "").localeCompare(a.paid_on ?? ""));
-  const sum = (rows: InvoiceRow[]) => rows.reduce((s, r) => s + r.amount_cents, 0);
-  const month = today.slice(0, 7);
-  const paidThisMonth = paid.filter((i) => (i.paid_on ?? "").startsWith(month));
+  const [message, setMessage] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [leavingId, setLeavingId] = useState<string | null>(null);
+  const [freshId, setFreshId] = useState<string | null>(null);
+  const [reminderFor, setReminderFor] = useState<Row | null>(null);
 
-  async function setStatus(i: InvoiceRow, status: "paid" | "open") {
-    setMessage(null);
-    const r = await call(`/api/invoices/${i.id}`, "PATCH", { status });
-    if (!r.ok) return setMessage(r.error ?? "Failed");
-    router.refresh();
+  useEffect(() => {
+    if (leavingId && !invoices.some((i) => i.id === leavingId)) setLeavingId(null);
+  }, [invoices, leavingId]);
+
+  useEffect(() => {
+    if (!freshId) return;
+    const t = setTimeout(() => setFreshId(null), 1500);
+    return () => clearTimeout(t);
+  }, [freshId]);
+
+  async function setStatus(row: Row, status: "paid" | "open") {
+    setBusyId(row.id);
+    try {
+      const res = await fetch(`/api/invoices/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        setMessage(await errorText(res));
+        return;
+      }
+      setMessage("");
+      if (status === "paid") setFreshId(row.id);
+      router.refresh();
+    } catch {
+      setMessage(NETWORK_ERROR);
+    } finally {
+      setBusyId(null);
+    }
   }
-  async function remove(i: InvoiceRow) {
-    if (!window.confirm(`Delete the invoice for ${i.client_name}?`)) return;
-    const r = await call(`/api/invoices/${i.id}`, "DELETE");
-    if (!r.ok) return setMessage(r.error ?? "Failed");
-    router.refresh();
+
+  async function remove(row: Row) {
+    if (!window.confirm(`Delete the invoice for ${row.client_name}?`)) return;
+    setBusyId(row.id);
+    setLeavingId(row.id);
+    try {
+      const res = await fetch(`/api/invoices/${row.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setLeavingId(null);
+        setMessage(await errorText(res));
+        return;
+      }
+      setMessage("");
+      // slide-out 220ms, then the row collapses 240ms after a 160ms delay
+      if (!reducedMotion()) await wait(620);
+      router.refresh();
+    } catch {
+      setLeavingId(null);
+      setMessage(NETWORK_ERROR);
+    } finally {
+      setBusyId(null);
+    }
   }
+
+  let index = 0;
+  const strip = (row: Row) => (
+    <Strip
+      key={row.id}
+      row={row}
+      index={index++}
+      busy={busyId === row.id}
+      leaving={leavingId === row.id}
+      fresh={freshId === row.id}
+      onReminder={() => setReminderFor(row)}
+      onPaid={() => setStatus(row, "paid")}
+      onReopen={() => setStatus(row, "open")}
+      onDelete={() => remove(row)}
+    />
+  );
 
   return (
-    <div>
-      <dl className="grid gap-px overflow-hidden rounded-md border border-ink bg-ink sm:grid-cols-3">
-        <Stat label="Overdue" value={formatUsd(sum(late))} note={`${late.length} ${late.length === 1 ? "invoice" : "invoices"}`} tone={late.length ? "text-late" : ""} />
-        <Stat label="Open, not due yet" value={formatUsd(sum(upcoming))} note={`${upcoming.length} ${upcoming.length === 1 ? "invoice" : "invoices"}`} />
-        <Stat label="Paid this month" value={formatUsd(sum(paidThisMonth))} note={`${paidThisMonth.length} ${paidThisMonth.length === 1 ? "invoice" : "invoices"}`} tone="text-teal" />
-      </dl>
-
-      {plan === "free" && (
-        <p className="mt-4 rounded-sm border border-line-strong bg-paper-raised px-3 py-2 text-[14px] leading-5 text-ink-muted">
-          Free plan: <span className="num text-ink">{open.length} of {FREE_OPEN_LIMIT}</span> open invoices used.{" "}
-          <a href="/dashboard/billing" className="font-semibold text-ink underline underline-offset-4">See Pro</a>
-        </p>
-      )}
-      {message && (
-        <p role="alert" className="mt-4 rounded-sm border border-error bg-paper-raised px-3 py-2 text-[14px] leading-5 text-error">
-          {message}
-        </p>
-      )}
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-8">
-          <Section title="Overdue" empty="Nothing is overdue. Nice." rows={late}>
-            {(i) => {
-              const d = daysOverdue(i.due_on, today);
-              const sev = severity(d);
-              return (
-                <Strip key={i.id} i={i} lead={<span className={`num text-[28px] leading-8 ${sev.box}`}>+{d}d</span>} sub={`Due ${formatDay(i.due_on)}`}>
-                  <button type="button" className="btn-small" onClick={() => setReminderFor(i)}>Write reminder</button>
-                  <button type="button" className="btn-small" onClick={() => setStatus(i, "paid")}>Mark paid</button>
-                  <button type="button" className="text-[13px] text-ink-subtle underline underline-offset-4" onClick={() => remove(i)}>Delete</button>
-                </Strip>
-              );
-            }}
-          </Section>
-          <Section title="Open, not due yet" empty="No upcoming invoices." rows={upcoming}>
-            {(i) => {
-              const d = -daysOverdue(i.due_on, today);
-              return (
-                <Strip key={i.id} i={i} lead={<span className="num text-[28px] leading-8 text-ink-muted">{d === 0 ? "today" : `${d}d`}</span>} sub={`Due ${formatDay(i.due_on)}`}>
-                  <button type="button" className="btn-small" onClick={() => setStatus(i, "paid")}>Mark paid</button>
-                  <button type="button" className="text-[13px] text-ink-subtle underline underline-offset-4" onClick={() => remove(i)}>Delete</button>
-                </Strip>
-              );
-            }}
-          </Section>
-          <Section title="Paid" empty="Paid invoices appear here." rows={paid.slice(0, 8)}>
-            {(i) => (
-              <Strip key={i.id} i={i} lead={<span className="num text-[28px] leading-8 text-teal">paid</span>} sub={i.paid_on ? `Paid ${formatDay(i.paid_on)}` : "Paid"}>
-                <button type="button" className="btn-small" onClick={() => setStatus(i, "open")}>Reopen</button>
-                <button type="button" className="text-[13px] text-ink-subtle underline underline-offset-4" onClick={() => remove(i)}>Delete</button>
-              </Strip>
-            )}
-          </Section>
+    <div className="wrap pb-12">
+      <section aria-label="Totals" className="grid gap-8 pt-8 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <p className="t-strong text-chalk">Overdue</p>
+            <p className="fig-lg print-in mt-2 text-tape">{formatUsd(sum(late))}</p>
+            <p className="t-small mt-2 text-chalk">{countText(late.length)}</p>
+          </div>
+          <Stat label="Open, not due yet" total={formatUsd(sum(upcoming))} count={countText(upcoming.length)} />
+          <Stat label="Paid this month" total={formatUsd(sum(paidThisMonth))} count={countText(paidThisMonth.length)} />
         </div>
+        <div className="flex flex-col gap-3 lg:items-end">
+          {plan === "free" ? (
+            <p className="tag t-small">
+              <span>{`Free plan: ${open} of ${FREE_OPEN_LIMIT} open invoices used.`}</span>
+              <Link href="/dashboard/billing" className="link">
+                See Pro
+              </Link>
+            </p>
+          ) : null}
+          <p role="alert" className={message ? "chip-error" : "sr-only"}>
+            {message}
+          </p>
+        </div>
+      </section>
 
-        <AddInvoice onError={setMessage} />
+      <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:gap-8">
+        <div className="grid gap-12">
+          {invoices.length === 0 ? (
+            <NoInvoices />
+          ) : (
+            <>
+              <Group title="Overdue" count={late.length} jump>
+                {late.length ? late.map(strip) : <Empty title="Nothing is overdue." body="Everything open is still inside its due date." />}
+              </Group>
+              <Group title="Open, not due yet" count={upcoming.length}>
+                {upcoming.length ? upcoming.map(strip) : <Empty title="Nothing waiting." body="Every open invoice is already past due, or paid." />}
+              </Group>
+              <Group title="Paid" count={paidAll.length} note={paidAll.length > 8 ? "Showing the 8 most recent." : undefined}>
+                {paid.length ? (
+                  paid.map(strip)
+                ) : (
+                  <Empty title="Nothing paid yet." body="Mark an invoice paid and it lands here." art={<ClearSpike className="w-16 shrink-0" />} />
+                )}
+              </Group>
+            </>
+          )}
+        </div>
+        <AddInvoice />
       </div>
 
-      {reminderFor && <ReminderDrawer invoice={reminderFor} senderName={senderName} onClose={() => setReminderFor(null)} />}
+      {reminderFor ? <ReminderDrawer row={reminderFor} senderName={senderName} onClose={() => setReminderFor(null)} /> : null}
     </div>
   );
 }
 
-function Stat({ label, value, note, tone = "" }: { label: string; value: string; note: string; tone?: string }) {
+function Stat({ label, total, count }: { label: string; total: string; count: string }) {
   return (
-    <div className="bg-paper-raised px-5 py-4">
-      <dt className="text-[14px] leading-5 text-ink-muted">{label}</dt>
-      <dd className={`num mt-1 text-[32px] leading-[38px] ${tone}`}>{value}</dd>
-      <p className="text-[13px] leading-[18px] text-ink-subtle">{note}</p>
+    <div className="strip strip--stat">
+      <p className="t-small text-ink-muted">{label}</p>
+      <p className="fig-md mt-1 !text-[1.5rem] md:!text-[1.625rem]">{total}</p>
+      <p className="fig-sm mt-1 text-ink-muted">{count}</p>
     </div>
   );
 }
 
-function Section({ title, empty, rows, children }: { title: string; empty: string; rows: InvoiceRow[]; children: (i: InvoiceRow) => React.ReactNode }) {
+function Group({ title, count, jump, note, children }: { title: string; count: number; jump?: boolean; note?: string; children: ReactNode }) {
+  const id = `group-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`;
   return (
-    <section aria-label={title}>
-      <h2 className="mb-3 text-[20px] leading-7">
-        {title} <span className="num text-[15px] text-ink-subtle">{rows.length}</span>
-      </h2>
-      {rows.length === 0 ? <p className="text-[15px] leading-[22px] text-ink-muted">{empty}</p> : <ul className="space-y-3">{rows.map(children)}</ul>}
+    <section aria-labelledby={id} className="lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-8">
+      <div className="mb-4 flex items-baseline justify-between gap-4 lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:mb-0 lg:block lg:self-start">
+        <h2 id={id} className="t-section text-tape">
+          {title} <span className="fig-sm text-chalk">{count}</span>
+        </h2>
+        {note ? <p className="t-micro mt-1 text-chalk">{note}</p> : null}
+        {jump ? (
+          <a href="#add-invoice" className="link t-small lg:hidden">
+            Add an invoice
+          </a>
+        ) : null}
+      </div>
+      <ul className="m-0 list-none p-0">{children}</ul>
     </section>
   );
 }
 
-function Strip({ i, lead, sub, children }: { i: InvoiceRow; lead: React.ReactNode; sub: string; children: React.ReactNode }) {
+function Empty({ title, body, art }: { title: string; body: string; art?: ReactNode }) {
   return (
-    <li className="tape border-x border-t border-line px-4 pt-4">
-      <div className="flex items-start gap-4">
-        <div className="w-20 shrink-0">{lead}</div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-[18px] font-semibold leading-6">{i.client_name}</p>
-          <p className="text-[14px] leading-5 text-ink-muted">
-            <span className="num text-ink">{formatUsd(i.amount_cents)}</span> {sub}
-          </p>
-          {i.notes && <p className="mt-0.5 truncate text-[13px] leading-[18px] text-ink-subtle">{i.notes}</p>}
+    <li className="strip-slot">
+      <div className="empty">
+        <div className="flex items-center gap-5">
+          {art}
+          <div>
+            <p className="t-strong">{title}</p>
+            <p className="t-small text-ink-muted">{body}</p>
+          </div>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 pb-3">{children}</div>
     </li>
   );
 }
 
-function AddInvoice({ onError }: { onError: (m: string | null) => void }) {
+function NoInvoices() {
+  return (
+    <section aria-labelledby="none-title" className="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)] md:items-center">
+      <BlankRoll className="max-w-[16rem]" />
+      <div>
+        <h2 id="none-title" className="t-section text-tape">
+          No invoices yet.
+        </h2>
+        <p className="mt-2 max-w-[36ch] text-chalk">Log the first one with the form and it shows up here with its days counted.</p>
+      </div>
+    </section>
+  );
+}
+
+type StripProps = {
+  row: Row;
+  index: number;
+  busy: boolean;
+  leaving: boolean;
+  fresh: boolean;
+  onReminder: () => void;
+  onPaid: () => void;
+  onReopen: () => void;
+  onDelete: () => void;
+};
+
+function Strip({ row, index, busy, leaving, fresh, onReminder, onPaid, onReopen, onDelete }: StripProps) {
+  const paid = row.status === "paid";
+  const tier = tierFor(row.days, paid);
+  const style: CSSVars = { "--i": Math.min(index, 5) };
+  const label = figureLabel(row.days, paid);
+  return (
+    <li className={`strip-slot ${index < 6 ? "rise-in" : ""}`} style={style} data-leaving={leaving ? "true" : undefined}>
+      <article className={`strip strip--${tier}`} aria-label={`${row.client_name}, ${formatUsd(row.amount_cents)}, ${label}`}>
+        <div className="grid grid-cols-[auto_1fr] items-start gap-x-4 gap-y-1 md:grid-cols-[auto_1fr_auto]">
+          <div className="row-span-3">
+            {tier === "due" ? (
+              <span className="t-small block text-ink-muted" aria-hidden="true">
+                due in
+              </span>
+            ) : null}
+            <span className={figureClass(tier)} aria-hidden="true">
+              {figureFor(row.days, paid)}
+            </span>
+            <span className="sr-only">{label}</span>
+          </div>
+
+          <div className="min-w-0">
+            <p className="t-strong truncate">{row.client_name}</p>
+            {row.notes ? <p className="t-small text-ink-muted">{row.notes}</p> : null}
+          </div>
+
+          <div className="md:col-start-3 md:row-start-1 md:text-right">
+            <p className="fig-amount">{formatUsd(row.amount_cents)}</p>
+            <p className="fig-sm text-ink-muted">{paid && row.paid_on ? `Paid ${formatDay(row.paid_on)}` : `Due ${formatDay(row.due_on)}`}</p>
+          </div>
+
+          <div className="col-start-2 flex flex-wrap gap-x-4 md:col-span-2">
+            {!paid && row.days > 0 ? (
+              <button type="button" className="btn-text" onClick={onReminder} disabled={busy}>
+                Write reminder
+              </button>
+            ) : null}
+            {paid ? (
+              <button type="button" className="btn-text" onClick={onReopen} disabled={busy}>
+                Reopen
+              </button>
+            ) : (
+              <button type="button" className="btn-text" onClick={onPaid} disabled={busy}>
+                Mark paid
+              </button>
+            )}
+            <button type="button" className="btn-text btn-text--danger" onClick={onDelete} disabled={busy}>
+              Delete
+            </button>
+          </div>
+        </div>
+
+        {tier === "t2" ? <FirmRing className="right-4 top-3 md:bottom-3 md:right-5 md:top-auto" /> : null}
+        {tier === "t3" ? <FinalBox className="right-4 top-3 md:bottom-3 md:right-5 md:top-auto" /> : null}
+        {tier === "paid" ? <PaidStamp paidOn={row.paid_on ? formatDay(row.paid_on) : undefined} fresh={fresh} className="bottom-2 right-3 top-auto md:bottom-auto md:right-40 md:top-7" /> : null}
+      </article>
+    </li>
+  );
+}
+
+function AddInvoice() {
   const router = useRouter();
   const today = todayIso();
   const [client, setClient] = useState("");
   const [amount, setAmount] = useState("");
   const [issued, setIssued] = useState(today);
-  const [due, setDue] = useState(() => new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
+  const [due, setDue] = useState(plusDays(today, 14));
   const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+  const [amountBad, setAmountBad] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const ready = client.trim() !== "" && amount.trim() !== "";
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
-    onError(null);
     const cents = parseAmountToCents(amount);
-    if (cents === null) return setError("Enter an amount like 1,250.00 (between $0.01 and $1,000,000).");
+    if (cents === null) {
+      setAmountBad(true);
+      setError("Enter an amount like 1,250.00 (between $0.01 and $1,000,000).");
+      return;
+    }
+    setAmountBad(false);
     setBusy(true);
-    const r = await call("/api/invoices", "POST", { client_name: client, amount_cents: cents, issued_on: issued, due_on: due, notes });
-    setBusy(false);
-    if (!r.ok) return setError(r.error ?? "Failed");
-    setClient("");
-    setAmount("");
-    setNotes("");
-    router.refresh();
-  }
-
-  return (
-    <form onSubmit={submit} className="h-fit space-y-3 rounded-md border border-ink bg-paper-raised p-4 lg:sticky lg:top-6" aria-label="Add an invoice">
-      <h2 className="text-[20px] leading-7">Add an invoice</h2>
-      <div>
-        <label htmlFor="client" className="mb-1 block text-[14px] font-semibold">Client</label>
-        <input id="client" value={client} onChange={(e) => setClient(e.target.value)} maxLength={120} className="field h-10" />
-      </div>
-      <div>
-        <label htmlFor="amount" className="mb-1 block text-[14px] font-semibold">Amount (USD)</label>
-        <input id="amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1,250.00" className="field num h-10" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="issued" className="mb-1 block text-[14px] font-semibold">Issued</label>
-          <input id="issued" type="date" value={issued} onChange={(e) => setIssued(e.target.value)} className="field h-10" />
-        </div>
-        <div>
-          <label htmlFor="due" className="mb-1 block text-[14px] font-semibold">Due</label>
-          <input id="due" type="date" value={due} onChange={(e) => setDue(e.target.value)} className="field h-10" />
-        </div>
-      </div>
-      <div>
-        <label htmlFor="notes" className="mb-1 block text-[14px] font-semibold">Note (optional)</label>
-        <input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} className="field h-10" />
-      </div>
-      {error && (
-        <p role="alert" className="text-[13px] leading-[18px] text-error">
-          {error}
-        </p>
-      )}
-      <button type="submit" disabled={busy || client.trim().length === 0 || amount.trim().length === 0} className="btn-primary w-full">
-        {busy ? "Saving" : "Add invoice"}
-      </button>
-    </form>
-  );
-}
-
-function ReminderDrawer({ invoice, senderName, onClose }: { invoice: InvoiceRow; senderName: string; onClose: () => void }) {
-  const d = daysOverdue(invoice.due_on, todayIso());
-  const [tone, setTone] = useState<Tone>(suggestedTone(d));
-  const [copied, setCopied] = useState(false);
-  const text = reminderText({ tone, clientName: invoice.client_name, amountCents: invoice.amount_cents, dueOn: invoice.due_on, daysOverdue: d, senderName });
-  const full = `Subject: ${text.subject}\n\n${text.body}`;
-
-  async function copy() {
+    setError("");
     try {
-      await navigator.clipboard.writeText(full);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_name: client, amount_cents: cents, issued_on: issued, due_on: due, notes }),
+      });
+      if (!res.ok) {
+        setError(await errorText(res));
+        return;
+      }
+      setClient("");
+      setAmount("");
+      setNotes("");
+      router.refresh();
     } catch {
-      setCopied(false);
+      setError(NETWORK_ERROR);
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-ink/40" onClick={onClose}>
-      <aside role="dialog" aria-modal="true" aria-label="Reminder" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && onClose()} className="flex h-full w-full max-w-[460px] flex-col gap-4 overflow-y-auto border-l border-ink bg-paper-raised p-5 shadow-pop">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[22px] leading-7">Reminder for {invoice.client_name}</h2>
-            <p className="text-[14px] leading-5 text-ink-muted">
-              <span className="num text-ink">{formatUsd(invoice.amount_cents)}</span>, {d > 0 ? `${d} ${d === 1 ? "day" : "days"} overdue` : "due today"}
-            </p>
-          </div>
-          <button type="button" className="btn-small" onClick={onClose} autoFocus>Close</button>
-        </div>
-        <div role="group" aria-label="Tone" className="flex gap-2">
-          {TONES.map((t) => (
-            <button key={t} type="button" aria-pressed={tone === t} onClick={() => setTone(t)} className={`btn-small capitalize ${tone === t ? "!bg-ink !text-white" : ""}`}>
-              {t}
-            </button>
-          ))}
+    <section id="add-invoice" aria-labelledby="add-title" className="pad lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:self-start">
+      <h2 id="add-title" className="t-section">
+        Add an invoice
+      </h2>
+      <form onSubmit={submit} noValidate className="mt-5 grid gap-4">
+        <div>
+          <label htmlFor="client" className="label">
+            Client
+          </label>
+          <input id="client" className="field" value={client} onChange={(e) => setClient(e.target.value)} autoComplete="organization" required />
         </div>
         <div>
-          <p className="text-[13px] leading-[18px] text-ink-subtle">Subject</p>
-          <p className="font-semibold">{text.subject}</p>
+          <label htmlFor="amount" className="label">
+            Amount (USD)
+          </label>
+          <input
+            id="amount"
+            className="field field-num"
+            inputMode="decimal"
+            placeholder="1,250.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            aria-invalid={amountBad || undefined}
+            aria-describedby={amountBad ? "add-error" : undefined}
+            required
+          />
         </div>
-        <pre className="whitespace-pre-wrap rounded-sm border border-line bg-paper p-3 font-sans text-[15px] leading-[22px]">{text.body}</pre>
-        <div className="flex items-center gap-3">
-          <button type="button" className="btn-primary" onClick={copy}>Copy message</button>
-          <span aria-live="polite" className="text-[14px] text-teal">{copied ? "Copied" : ""}</span>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="issued" className="label">
+              Issued
+            </label>
+            <input id="issued" type="date" className="field field-num" value={issued} onChange={(e) => setIssued(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="due" className="label">
+              Due
+            </label>
+            <input id="due" type="date" className="field field-num" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
         </div>
-        <p className="text-[13px] leading-[18px] text-ink-subtle">Chaser does not send email. Paste this into your own email. It never mentions late fees, interest or legal action.</p>
-      </aside>
-    </div>
+        <div>
+          <label htmlFor="notes" className="label">
+            Note (optional)
+          </label>
+          <textarea id="notes" className="field" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <p id="add-error" role="alert" className={error ? "hint hint--error" : "sr-only"}>
+          {error}
+        </p>
+        <button type="submit" className="btn btn-primary w-full" disabled={!ready || busy} data-busy={busy || undefined}>
+          {busy ? "Saving" : "Add invoice"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function ReminderDrawer({ row, senderName, onClose }: { row: Row; senderName: string; onClose: () => void }) {
+  const [tone, setTone] = useState<Tone>(suggestedTone(row.days) as Tone);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const panel = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panel.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  const { subject, body } = reminderText({
+    tone,
+    clientName: row.client_name,
+    amountCents: row.amount_cents,
+    dueOn: row.due_on,
+    daysOverdue: row.days,
+    senderName,
+  });
+  const lateText = row.days === 0 ? "due today" : `${row.days} ${row.days === 1 ? "day" : "days"} overdue`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+      setCopyError("");
+      setCopied(true);
+    } catch {
+      setCopyError("Copy did not work in this browser. Select the text and copy it by hand.");
+    }
+  }
+
+  return (
+    <>
+      <div className="scrim" onClick={onClose} aria-hidden="true" />
+      <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Reminder" className="drawer">
+        <div className="drawer-body">
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="t-section">Reminder</h2>
+            <button type="button" className="btn btn-small btn-secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+          <p className="t-strong mt-5">{row.client_name}</p>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-3">
+            <span className="fig-amount">{formatUsd(row.amount_cents)}</span>
+            <span className="t-small text-ink-muted">{lateText}</span>
+          </p>
+
+          <p id="tone-label" className="label mt-6">
+            Tone
+          </p>
+          <div className="seg" role="group" aria-labelledby="tone-label">
+            {TONES.map((t) => (
+              <button key={t} type="button" className="seg-btn capitalize" aria-pressed={tone === t} onClick={() => setTone(t as Tone)}>
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <div className="perf my-6" aria-hidden="true" />
+
+          <p className="label">Subject</p>
+          <p className="t-strong">{subject}</p>
+          <p className="label mt-5">Message</p>
+          <p className="whitespace-pre-wrap font-body leading-relaxed">{body}</p>
+        </div>
+
+        <div className="drawer-foot">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn btn-primary" onClick={copy} data-copied={copied || undefined}>
+              {copied ? <Check /> : null}
+              Copy message
+            </button>
+            <p role="status" aria-live="polite" className="t-small text-ink-muted">
+              {copied ? "Copied" : copyError}
+            </p>
+          </div>
+          <p className="hint mt-3">Chaser does not send email. Paste this into your own mail app.</p>
+        </div>
+      </div>
+    </>
   );
 }

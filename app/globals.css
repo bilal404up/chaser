@@ -1,62 +1,147 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities;
 
-html,
+/* ------------------------------------------------------------------ */
+/* 1. Tokens                                                           */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* colours, mirrored from tailwind.config.ts for gradients and masks */
+  --c-tape: #F2EFE6;
+  --c-tape-aged: #EEE8D8;
+  --c-tape-worn: #E9E0CB;
+  --c-tape-press: #E4DFD0;
+  --c-chalk: #B9C7C0;
+  --c-ink: #1B1F24;
+  --c-ink-press: #0E1114;
+  --c-ink-muted: #4B5159;
+  --c-ink-faint: #C9C3B4;
+  --c-blotter: #143D36;
+  --c-blotter-raised: #1C4A42;
+  --c-blotter-deep: #0F2E29;
+  --c-stamp: #B82C25;
+  --c-carbon: #2E4E9C;
+  --c-ochre: #8F5A10;
+
+  /* layout */
+  --header-h: 3.5rem;
+  --demo-h: 0px;
+  --list-gap: 16px;
+  --wrap-x: 16px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t-med: 180ms;
+  --t-slow: 240ms;
+
+  /* focus colour: paper on blotter by default, carbon inside paper */
+  --focus: var(--c-tape);
+
+  /* button colours: paper button on blotter by default, ink button inside paper */
+  --btn-bg: var(--c-tape);
+  --btn-fg: var(--c-ink);
+  --btn-bg-press: var(--c-tape-press);
+
+  /* torn-edge mask tiles (black = paper) */
+  --tear-fine-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='12'%3E%3Cpath d='M0 12V4L3 5.5 6 3 9 5 12 2.5 15 4.5 18 3 21 5.5 24 3.5 27 5 30 2.5 33 4.5 36 3 39 5.5 42 3.5 45 5 48 4V12Z'/%3E%3C/svg%3E");
+  --tear-fine-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='12'%3E%3Cpath d='M0 0V8L3 6.5 6 9 9 7 12 9.5 15 7.5 18 9 21 6.5 24 8.5 27 7 30 9.5 33 7.5 36 9 39 6.5 42 8.5 45 7 48 8V0Z'/%3E%3C/svg%3E");
+  --tear-medium-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='14'%3E%3Cpath d='M0 14V6L4 9 7 4 11 8 14 3 18 7 21 5 25 9 28 4 32 8 35 3.5 39 7 42 5 46 9 48 6V14Z'/%3E%3C/svg%3E");
+  --tear-medium-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='14'%3E%3Cpath d='M0 0V8L4 5 7 10 11 6 14 11 18 7 21 9 25 5 28 10 32 6 35 10.5 39 7 42 9 46 5 48 8V0Z'/%3E%3C/svg%3E");
+  --tear-ragged-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='18'%3E%3Cpath d='M0 18V9L3 12 5 6 10 11 13 4 17 9 19 14 24 8 27 12 31 5 34 10 38 7 41 13 46 6 49 11 53 4.5 57 10 60 7 64 9V18Z'/%3E%3C/svg%3E");
+  --tear-ragged-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='18'%3E%3Cpath d='M0 0V9L3 6 5 12 10 7 13 14 17 9 19 4 24 10 27 6 31 13 34 8 38 11 41 5 46 12 49 7 53 13.5 57 8 60 11 64 9V0Z'/%3E%3C/svg%3E");
+  --tear-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='48'%3E%3Cpath d='M12 0H5L7 3 3 6 6 9 4 12 8 15 5 18 7 21 3 24 6 27 4 30 8 33 5 36 7 39 3 42 6 45 5 48H12Z'/%3E%3C/svg%3E");
+
+  /* grain tiles: feTurbulence rendered once per tile, then repeated */
+  --grain-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g' x='0' y='0' width='160' height='160' filterUnits='userSpaceOnUse'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  --grain-blotter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='240' height='240' filterUnits='userSpaceOnUse'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+
+  /* the fold crease used on 30-day strips */
+  --crease: linear-gradient(to bottom, transparent 0 48%, rgba(27, 31, 36, 0.08) 48% 50%, rgba(255, 255, 255, 0.4) 50% 51.5%, transparent 51.5%);
+
+  /* perforation (punched holes) */
+  --perf-dot: var(--c-ink-faint);
+}
+
+body[data-demo] {
+  --demo-h: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 767px) {
+  :root { --wrap-x: 16px; }
+  body[data-demo] { --demo-h: calc(100px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (min-width: 768px) {
+  :root { --wrap-x: 32px; }
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Base                                                             */
+/* ------------------------------------------------------------------ */
+
+html {
+  color-scheme: dark;
+  background: var(--c-blotter);
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 16px);
+  scroll-padding-bottom: 120px;
+}
+
 body {
-  background: #f3f5f8;
-  color: #14181f;
-  font-family: var(--font-body), "Helvetica Neue", Arial, sans-serif;
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  margin: 0;
+  padding-bottom: var(--demo-h);
+  background: var(--c-blotter);
+  color: var(--c-tape);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-display), "Helvetica Neue", Arial, sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-
-*:focus-visible {
-  outline: 2px solid #14181f;
-  outline-offset: 2px;
+/* felt grain on the desk, one layer for the whole page */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--grain-blotter) 0 0 / 240px 240px repeat;
 }
 
 ::selection {
-  background: #ffe8e0;
-  color: #7a1010;
+  background: var(--c-carbon);
+  color: var(--c-tape);
 }
 
-@layer components {
-  .btn {
-    @apply inline-flex h-10 items-center justify-center gap-2 rounded-sm px-4 text-[15px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
-  }
-  .btn-primary {
-    @apply btn bg-ink text-white hover:bg-ink-muted;
-  }
-  .btn-secondary {
-    @apply btn border border-ink bg-paper-raised text-ink hover:bg-paper-sunk;
-  }
-  .btn-small {
-    @apply inline-flex h-8 items-center justify-center rounded-sm border border-ink bg-paper-raised px-3 text-[14px] font-semibold text-ink hover:bg-paper-sunk disabled:opacity-60;
-  }
-  .field {
-    @apply w-full rounded-sm border border-line-strong bg-paper-raised px-3 text-[15px] text-ink placeholder:text-ink-subtle;
-  }
-  .num {
-    font-family: var(--font-mono), ui-monospace, Menlo, Consolas, monospace;
-    font-variant-numeric: tabular-nums slashed-zero;
-    font-weight: 500;
-  }
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
-/* The tape: an invoice strip with a torn, zigzag bottom edge, like a receipt. */
-.tape {
-  background: #ffffff;
-  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 100% repeat-x;
-  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 100% repeat-x;
-  padding-bottom: 9px;
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* paper surfaces flip the control colours and the focus colour */
+.paper,
+.strip,
+.paper-band,
+.pad,
+.tag,
+.drawer,
+.plan-strip,
+.empty {
+  color-scheme: light;
+  color: var(--c-ink);
+  --focus: var(--c-carbon);
+  --btn-bg: var(--c-ink);
+  --btn-fg: var(--c-tape);
+  --btn-bg-press: var(--c-ink-press);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -64,6 +149,863 @@ h3 {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* 3. Type                                                             */
+/* ------------------------------------------------------------------ */
+
+.t-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-variation-settings: 'wdth' 80, 'opsz' 96;
+  font-size: clamp(3.5rem, 2.624rem + 3.6vw, 5.5rem);
+  line-height: 0.93;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.t-title {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-variation-settings: 'wdth' 90, 'opsz' 48;
+  font-size: clamp(1.875rem, 1.601rem + 1.124vw, 2.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.t-section {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-variation-settings: 'wdth' 100;
+  font-size: clamp(1.375rem, 1.32rem + 0.225vw, 1.5rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.t-body { font-size: 1rem; line-height: 1.5; font-weight: 400; }
+.t-strong { font-size: 1rem; line-height: 1.5; font-weight: 500; }
+.t-small { font-size: 0.875rem; line-height: 1.45; }
+.t-micro { font-size: 0.8125rem; line-height: 1.4; font-weight: 500; }
+
+.wordmark {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-variation-settings: 'wdth' 75, 'opsz' 24;
+  font-size: 1.375rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* stamp text lives inside SVG; this is the only place caps are allowed */
+.stamp-text {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-variation-settings: 'wdth' 90, 'opsz' 24;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* figures: every number in the product */
+.num,
+.fig-xl, .fig-lg, .fig-md, .fig-amount, .fig-sm {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+.num { font-weight: 500; }
+.fig-xl { font-weight: 800; font-size: clamp(4rem, 3.124rem + 3.6vw, 6rem); line-height: 1; letter-spacing: -0.02em; }
+.fig-lg { font-weight: 800; font-size: clamp(3rem, 2.343rem + 2.7vw, 4.5rem); line-height: 1; letter-spacing: -0.02em; }
+.fig-md { font-weight: 800; font-size: clamp(2rem, 1.781rem + 0.9vw, 2.5rem); line-height: 1; letter-spacing: -0.02em; }
+.fig-amount { font-weight: 500; font-size: clamp(1.125rem, 1.07rem + 0.225vw, 1.25rem); line-height: 1.2; }
+.fig-sm { font-weight: 500; font-size: 0.875rem; line-height: 1.4; }
+
+/* ink bleed on the 30-day figure */
+.fig-bleed {
+  text-shadow: 0 0 0.6px currentColor, 0.4px 0 0 currentColor;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Surfaces                                                         */
+/* ------------------------------------------------------------------ */
+
+.wrap {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: var(--wrap-x);
+}
+
+.paper {
+  position: relative;
+  isolation: isolate;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+}
+
+/* ---- the strip ---------------------------------------------------- */
+.strip {
+  --paper: var(--c-tape);
+  --tear-top: var(--tear-fine-top);
+  --tear-bottom: var(--tear-fine-bottom);
+  --tear-w: 48px;
+  --tear-h: 12px;
+  --tilt: 0deg;
+  --grain-layers: var(--grain-paper) 0 0 / 160px 160px repeat;
+  --stamp-rot: -6deg;
+
+  position: relative;
+  isolation: isolate;
+  min-height: 168px;
+  padding: calc(var(--tear-h) + 8px) 16px;
+}
+
+@media (min-width: 768px) {
+  .strip {
+    min-height: 112px;
+    padding-inline: 20px;
+  }
+}
+
+.strip::before {
+  content: "";
+  position: absolute;
+  inset: -2px -3px;
+  z-index: -1;
+  background: var(--grain-layers), var(--paper);
+  mask-image: var(--tear-top), var(--tear-bottom), linear-gradient(#000, #000);
+  mask-size: var(--tear-w) var(--tear-h), var(--tear-w) var(--tear-h), 100% calc(100% - 2 * var(--tear-h) + 1px);
+  mask-position: 0 0, 0 100%, 0 calc(var(--tear-h) - 0.5px);
+  mask-repeat: repeat-x, repeat-x, no-repeat;
+  transform: rotate(var(--tilt));
+  transform-origin: 50% 50%;
+}
+
+/* not yet due: fresh off the roll, straight edges, a perforation row at the top */
+.strip--due::before {
+  mask-image: none;
+}
+
+.strip--due::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: -1;
+  background: radial-gradient(circle at 5px 5px, var(--c-blotter) 1.5px, transparent 1.75px) 0 0 / 10px 10px repeat-x;
+}
+
+.strip--t1 { }
+
+/* 8 to 29 days */
+.strip--t2 {
+  --paper: var(--c-tape-aged);
+  --tear-top: var(--tear-medium-top);
+  --tear-bottom: var(--tear-medium-bottom);
+  --tear-h: 14px;
+  --tilt: -0.6deg;
+  --stamp-rot: -4deg;
+}
+
+/* 30 days and up */
+.strip--t3 {
+  --paper: var(--c-tape-worn);
+  --tear-top: var(--tear-ragged-top);
+  --tear-bottom: var(--tear-ragged-bottom);
+  --tear-w: 64px;
+  --tear-h: 18px;
+  --tilt: 1deg;
+  --stamp-rot: -6deg;
+  --grain-layers:
+    var(--grain-paper) 0 0 / 160px 160px repeat,
+    var(--grain-paper) 80px 40px / 160px 160px repeat,
+    var(--crease);
+}
+
+/* missing top-right corner on the 30-day paper */
+.strip--t3::before {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 34px) 0,
+    calc(100% - 26px) 10px,
+    calc(100% - 12px) 6px,
+    100% 16px,
+    100% 100%,
+    0 100%
+  );
+}
+
+/* carbon copy behind the 30-day paper */
+.strip--t3::after {
+  content: "";
+  position: absolute;
+  inset: -2px -3px;
+  z-index: -2;
+  background: var(--c-blotter-deep);
+  mask-image: var(--tear-top), var(--tear-bottom), linear-gradient(#000, #000);
+  mask-size: var(--tear-w) var(--tear-h), var(--tear-w) var(--tear-h), 100% calc(100% - 2 * var(--tear-h) + 1px);
+  mask-position: 0 0, 0 100%, 0 calc(var(--tear-h) - 0.5px);
+  mask-repeat: repeat-x, repeat-x, no-repeat;
+  transform: translate(4px, 6px) rotate(var(--tilt));
+  transform-origin: 50% 50%;
+}
+
+.strip--paid {
+  --stamp-rot: -8deg;
+  opacity: 0.9;
+}
+
+.strip--stat {
+  min-height: 0;
+  padding: calc(var(--tear-h) + 6px) 16px;
+}
+
+/* ---- list slot: owns spacing so a leaving strip collapses cleanly ---- */
+.strip-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+  padding-bottom: var(--list-gap);
+  transition:
+    grid-template-rows var(--t-slow) var(--ease-out) 160ms,
+    padding-bottom var(--t-slow) var(--ease-out) 160ms;
+}
+
+.strip-slot > * {
+  min-height: 0;
+}
+
+.strip-slot[data-leaving="true"] {
+  grid-template-rows: 0fr;
+  padding-bottom: 0;
+}
+
+.strip-slot[data-leaving="true"] > * {
+  overflow: hidden;
+}
+
+.strip-slot[data-leaving="true"] .strip {
+  animation: strip-leave 220ms var(--ease-out) both;
+}
+
+/* ---- full-bleed paper band (landing benefits) ---------------------- */
+.paper-band {
+  --tear-h: 14px;
+  position: relative;
+  isolation: isolate;
+  padding-block: calc(var(--tear-h) + 48px);
+}
+
+.paper-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  mask-image: var(--tear-medium-top), var(--tear-medium-bottom), linear-gradient(#000, #000);
+  mask-size: 48px var(--tear-h), 48px var(--tear-h), 100% calc(100% - 2 * var(--tear-h) + 1px);
+  mask-position: 0 0, 0 100%, 0 calc(var(--tear-h) - 0.5px);
+  mask-repeat: repeat-x, repeat-x, no-repeat;
+}
+
+/* ---- pad: forms. Torn at the top, square at the bottom. ---- */
+.pad {
+  --tear-h: 12px;
+  position: relative;
+  isolation: isolate;
+  padding: calc(var(--tear-h) + 20px) 20px 24px;
+}
+
+.pad::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  mask-image: var(--tear-fine-top), linear-gradient(#000, #000);
+  mask-size: 48px var(--tear-h), 100% calc(100% - var(--tear-h) + 1px);
+  mask-position: 0 0, 0 calc(var(--tear-h) - 0.5px);
+  mask-repeat: repeat-x, no-repeat;
+}
+
+/* ---- tag: the free-plan notice, hung from a punched edge ---------- */
+.tag {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 14px 16px 12px;
+}
+
+.tag::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  transform: rotate(-1deg);
+  transform-origin: 50% 50%;
+}
+
+.tag::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 8px;
+  right: 8px;
+  height: 8px;
+  z-index: -1;
+  background: radial-gradient(circle at 4px 4px, var(--c-blotter) 1.75px, transparent 2px) 0 0 / 10px 8px repeat-x;
+  transform: rotate(-1deg);
+  transform-origin: 50% 50%;
+}
+
+/* ---- plan receipts (Free and Pro) --------------------------------- */
+.plan-strip {
+  --tear-h: 14px;
+  position: relative;
+  isolation: isolate;
+  padding: calc(var(--tear-h) + 20px) 24px calc(var(--tear-h) + 24px);
+}
+
+.plan-strip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  mask-image: var(--tear-medium-top), var(--tear-medium-bottom), linear-gradient(#000, #000);
+  mask-size: 48px var(--tear-h), 48px var(--tear-h), 100% calc(100% - 2 * var(--tear-h) + 1px);
+  mask-position: 0 0, 0 100%, 0 calc(var(--tear-h) - 0.5px);
+  mask-repeat: repeat-x, repeat-x, no-repeat;
+}
+
+.plan-strip--pro::before {
+  transform: rotate(0.6deg);
+  transform-origin: 50% 50%;
+}
+
+/* ---- perforation dividers ---------------------------------------- */
+.perf {
+  height: 10px;
+  background: radial-gradient(circle at 5px 5px, var(--perf-dot) 1.5px, transparent 1.75px) 0 0 / 10px 10px repeat-x;
+}
+
+.perf-v {
+  width: 10px;
+  align-self: stretch;
+  background: radial-gradient(circle at 5px 5px, var(--perf-dot) 1.5px, transparent 1.75px) 0 0 / 10px 10px repeat-y;
+}
+
+.on-blotter .perf,
+.on-blotter .perf-v,
+body > .perf {
+  --perf-dot: var(--c-blotter-deep);
+}
+
+/* ---- empty state strip ------------------------------------------- */
+.empty {
+  --tear-h: 12px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: calc(var(--tear-h) + 16px) 20px;
+}
+
+.empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  mask-image: var(--tear-fine-top), var(--tear-fine-bottom), linear-gradient(#000, #000);
+  mask-size: 48px var(--tear-h), 48px var(--tear-h), 100% calc(100% - 2 * var(--tear-h) + 1px);
+  mask-position: 0 0, 0 100%, 0 calc(var(--tear-h) - 0.5px);
+  mask-repeat: repeat-x, repeat-x, no-repeat;
+}
+
+/* ---- stamps (positioned by the component, animated here) ---------- */
+.stamp {
+  position: absolute;
+  pointer-events: none;
+  transform: rotate(var(--stamp-rot, -6deg));
+  transform-origin: 50% 50%;
+}
+
+.stamp[data-fresh="true"] {
+  animation: stamp-slap var(--t-med) var(--ease-out) both;
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Controls                                                         */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  font: 500 1rem/1 var(--font-body), system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform var(--t-fast) var(--ease-out),
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out);
+}
+
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+}
+
+.btn-primary:hover { background: var(--btn-bg-press); }
+
+.btn-secondary {
+  background: transparent;
+  color: inherit;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.btn-secondary:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.btn-small {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+  .btn-small { min-height: 44px; }
+}
+
+/* text actions on a strip */
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 500 0.9375rem/1 var(--font-body), system-ui, sans-serif;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  text-decoration-color: transparent;
+  cursor: pointer;
+  transition: text-decoration-color var(--t-fast), color var(--t-fast);
+}
+
+.btn-text:hover { text-decoration-color: currentColor; }
+.btn-text--danger:hover { color: var(--c-stamp); }
+
+.btn-carbon {
+  background: var(--c-carbon);
+  color: var(--c-tape);
+}
+
+.btn-carbon:hover { background: #27428A; }
+
+.btn[data-busy="true"] {
+  pointer-events: none;
+  background-image: linear-gradient(90deg, transparent 0 30%, rgba(255, 255, 255, 0.18) 50%, transparent 70% 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.btn[data-copied="true"] {
+  background: var(--c-carbon);
+  color: var(--c-tape);
+}
+
+.check-draw {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: draw-check var(--t-slow) var(--ease-out) both;
+}
+
+/* fields: printed form lines, a 2px ink rule under each */
+.field {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--c-tape-aged);
+  color: var(--c-ink);
+  box-shadow: inset 0 -2px 0 var(--c-ink);
+  font: 500 1rem/1.5 var(--font-body), system-ui, sans-serif;
+  transition: box-shadow var(--t-fast) var(--ease-out);
+}
+
+.field::placeholder { color: var(--c-ink-muted); }
+
+.field:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 -2px 0 var(--c-carbon),
+    0 0 0 2px var(--c-tape),
+    0 0 0 4px var(--c-carbon);
+}
+
+.field[aria-invalid="true"] {
+  box-shadow: inset 0 -2px 0 var(--c-stamp);
+}
+
+.field-num {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--c-ink-muted);
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 0.875rem;
+  color: var(--c-ink-muted);
+}
+
+.hint--error { color: var(--c-stamp); }
+
+/* links */
+.link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  transition: text-decoration-color var(--t-fast);
+}
+
+.link:hover { text-decoration-color: currentColor; }
+
+.paper .link,
+.strip .link,
+.pad .link,
+.tag .link,
+.drawer .link,
+.plan-strip .link,
+.empty .link {
+  color: var(--c-carbon);
+}
+
+/* plan badge in the header */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 2px;
+  background: var(--c-tape);
+  color: var(--c-ink);
+  font: 500 0.8125rem/1 var(--font-body), system-ui, sans-serif;
+}
+
+.badge--pro {
+  background: var(--c-carbon);
+  color: var(--c-tape);
+}
+
+/* error chip */
+.chip-error {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 2px;
+  background: var(--c-tape);
+  color: var(--c-stamp);
+  box-shadow: inset 0 0 0 1.5px var(--c-stamp);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* tone segment in the drawer */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+}
+
+.seg-btn {
+  min-height: 44px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--c-ink);
+  box-shadow: inset 0 0 0 1.5px var(--c-ink);
+  font: 500 1rem/1 var(--font-body), system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+
+.seg-btn[aria-pressed="true"] {
+  background: var(--c-ink);
+  color: var(--c-tape);
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Layout pieces                                                    */
+/* ------------------------------------------------------------------ */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: var(--header-h);
+  background: var(--c-blotter-deep);
+}
+
+.rail {
+  position: sticky;
+  top: calc(var(--header-h) + 16px);
+  align-self: start;
+}
+
+.pad--sticky {
+  position: sticky;
+  top: calc(var(--header-h) + 16px);
+  align-self: start;
+  max-height: calc(100dvh - var(--header-h) - var(--demo-h) - 32px);
+  overflow: auto;
+}
+
+/* the demo bar: fixed, its height is the same variable the body pads with */
+.demo-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  height: var(--demo-h);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--c-blotter-deep);
+  color: var(--c-tape);
+}
+
+.demo-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 2px;
+  background: var(--c-stamp);
+  color: var(--c-tape);
+  font: 600 0.8125rem/1 var(--font-body), system-ui, sans-serif;
+}
+
+/* ---- drawer and scrim --------------------------------------------- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 46, 41, 0.6);
+  animation: scrim-in var(--t-slow) var(--ease-out) both;
+}
+
+.drawer {
+  --tear-h: 14px;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  width: min(30rem, 100vw);
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  padding-left: 12px;
+  animation: drawer-in var(--t-slow) var(--ease-out) both;
+}
+
+.drawer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  mask-image: var(--tear-left), linear-gradient(#000, #000);
+  mask-size: 12px 48px, calc(100% - 11px) 100%;
+  mask-position: 0 0, 11px 0;
+  mask-repeat: repeat-y, no-repeat;
+}
+
+.drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 16px;
+}
+
+.drawer-foot {
+  position: sticky;
+  bottom: 0;
+  padding: 16px 24px max(16px, env(safe-area-inset-bottom, 0px));
+  background: var(--c-tape);
+}
+
+@media (max-width: 767px) {
+  .drawer {
+    top: 8dvh;
+    left: 0;
+    width: 100%;
+    padding-left: 0;
+    padding-top: var(--tear-h);
+    animation-name: sheet-up;
+  }
+
+  .drawer::before {
+    mask-image: var(--tear-medium-top), linear-gradient(#000, #000);
+    mask-size: 48px var(--tear-h), 100% calc(100% - var(--tear-h) + 1px);
+    mask-position: 0 0, 0 calc(var(--tear-h) - 0.5px);
+    mask-repeat: repeat-x, no-repeat;
+  }
+
+  .drawer-body { padding: 20px 16px 12px; }
+  .drawer-foot { padding-inline: 16px; }
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Motion                                                           */
+/* ------------------------------------------------------------------ */
+
+.drop-in {
+  animation: tape-drop 420ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.rise-in {
+  animation: rise var(--t-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+.print-in {
+  animation: thermal-print 480ms steps(24, end) both;
+}
+
+.fig-loading {
+  color: transparent;
+  background: linear-gradient(90deg, var(--c-tape-aged) 0 30%, var(--c-tape-worn) 50%, var(--c-tape-aged) 70% 100%);
+  background-size: 200% 100%;
+  border-radius: 2px;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes tape-drop {
+  from { opacity: 0; transform: translateY(-24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes thermal-print {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes stamp-slap {
+  0%   { opacity: 0; transform: scale(1.6) rotate(calc(var(--stamp-rot, -6deg) - 8deg)); }
+  70%  { opacity: 1; transform: scale(0.96) rotate(var(--stamp-rot, -6deg)); }
+  100% { opacity: 1; transform: scale(1) rotate(var(--stamp-rot, -6deg)); }
+}
+
+@keyframes strip-leave {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(32px); }
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes draw-check {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. Legacy alias                                                     */
+/* ------------------------------------------------------------------ */
+
+.tape {
+  position: relative;
+  isolation: isolate;
+  padding: 20px 16px;
+  color: var(--c-ink);
+  --focus: var(--c-carbon);
+  --btn-bg: var(--c-ink);
+  --btn-fg: var(--c-tape);
+  --btn-bg-press: var(--c-ink-press);
+}
+
+.tape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--grain-paper) 0 0 / 160px 160px repeat, var(--c-tape);
+  mask-image: var(--tear-fine-top), var(--tear-fine-bottom), linear-gradient(#000, #000);
+  mask-size: 48px 12px, 48px 12px, 100% calc(100% - 23px);
+  mask-position: 0 0, 0 100%, 0 11.5px;
+  mask-repeat: repeat-x, repeat-x, no-repeat;
+}
+
+/* Utilities come LAST so they can override the component classes above. */
+@tailwind utilities;

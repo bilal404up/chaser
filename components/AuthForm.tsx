@@ -1,63 +1,88 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import { browserClient } from "@/lib/supabase/browser";
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+type Props = { mode: "login" | "signup" };
+
+async function errorText(res: Response) {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return String(data.error ?? data.message ?? text);
+  } catch {
+    return text || `Request failed (${res.status}).`;
+  }
+}
+
+export default function AuthForm({ mode }: Props) {
   const router = useRouter();
+  const signup = mode === "signup";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const ready = email.trim() !== "" && password !== "" && (!signup || name.trim() !== "");
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
+    setError("");
     try {
-      if (mode === "signup") {
-        const res = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, display_name: name }) });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error ?? "Could not create the account.");
+      if (signup) {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, display_name: name }),
+        });
+        if (!res.ok) {
+          setError(await errorText(res));
+          return;
+        }
       }
       const { error: signInError } = await browserClient().auth.signInWithPassword({ email, password });
-      if (signInError) throw new Error(mode === "login" ? "That email and password do not match." : "Account created, but sign-in failed. Try logging in.");
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
       router.push("/dashboard");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  const bad = error ? true : undefined;
   return (
-    <form onSubmit={submit} className="mt-6 space-y-4">
-      {mode === "signup" && (
+    <form onSubmit={submit} noValidate className="grid gap-4">
+      {signup ? (
         <div>
-          <label htmlFor="name" className="mb-1 block text-[14px] font-semibold">Your name</label>
-          <input id="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" className="field h-10" />
+          <label htmlFor="name" className="label">
+            Name
+          </label>
+          <input id="name" className="field" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
         </div>
-      )}
+      ) : null}
       <div>
-        <label htmlFor="email" className="mb-1 block text-[14px] font-semibold">Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className="field h-10" aria-invalid={bad} />
+        <label htmlFor="email" className="label">
+          Email
+        </label>
+        <input id="email" type="email" className="field" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" required />
       </div>
       <div>
-        <label htmlFor="password" className="mb-1 block text-[14px] font-semibold">Password</label>
-        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} className="field h-10" aria-invalid={bad} aria-describedby={error ? "auth-error" : mode === "signup" ? "pw-help" : undefined} />
-        {mode === "signup" && !error && <p id="pw-help" className="mt-1 text-[13px] leading-[18px] text-ink-subtle">At least 10 characters.</p>}
+        <label htmlFor="password" className="label">
+          Password
+        </label>
+        <input id="password" type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={signup ? "new-password" : "current-password"} required />
       </div>
-      {error && (
-        <p id="auth-error" role="alert" className="text-[14px] leading-5 text-error">
-          {error}
-        </p>
-      )}
-      <button type="submit" disabled={busy || !email || !password || (mode === "signup" && !name)} className="btn-primary w-full">
-        {busy ? "One moment" : mode === "login" ? "Log in" : "Create account"}
+      <p role="alert" className={error ? "hint hint--error" : "sr-only"}>
+        {error}
+      </p>
+      <button type="submit" className="btn btn-primary w-full" disabled={!ready || busy} data-busy={busy || undefined}>
+        {busy ? "One moment" : signup ? "Create account" : "Log in"}
       </button>
     </form>
   );

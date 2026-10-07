@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function TryDemo() {
+export function TryDemo({ className = "btn-primary" }: { className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -11,7 +11,7 @@ export function TryDemo() {
     <span className="inline-flex flex-col items-start gap-1">
       <button
         type="button"
-        className="btn-primary"
+        className={className}
         disabled={busy}
         onClick={async () => {
           setBusy(true);

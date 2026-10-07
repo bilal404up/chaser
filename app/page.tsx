@@ -1,98 +1,187 @@
+import Link from "next/link";
 import { TryDemo } from "@/components/TryDemo";
-import { isDemoMode } from "@/lib/demo";
+import { ExampleStrip, SeverityLadder, type CSSVars } from "@/components/ink";
 
 export const dynamic = "force-dynamic";
 
+/* Fixed example data for the landing visual only. Not props, not from the database. */
 const EXAMPLES = [
-  { days: 34, client: "Northwind Studio", amount: "$2,400.00", tone: "text-severe" },
-  { days: 12, client: "Harbor & Pine", amount: "$860.00", tone: "text-late" },
-  { days: 3, client: "Kestrel Labs", amount: "$1,150.00", tone: "text-amber" },
+  { client: "Harbor & Co", amount: "$2,400.00", due: "Sep 4, 2026", daysLate: 34, note: "Second project phase, net 30" },
+  { client: "Nguyen Design", amount: "$870.00", due: "Sep 26, 2026", daysLate: 12 },
+  { client: "Marlow LLC", amount: "$1,150.00", due: "Oct 5, 2026", daysLate: 3, note: "Brand guidelines, final files" },
+  { client: "Oak St Bakery", amount: "$640.00", due: "Sep 20, 2026", daysLate: 0, paid: true, paidOn: "Sep 18, 2026" },
+] as const;
+
+/* The spill: each strip sits a little lower and further right, the top one on top. */
+const SPILL = [
+  "relative z-[4] lg:w-[88%]",
+  "relative z-[3] -mt-2.5 lg:ml-[7%] lg:w-[86%] lg:-mt-3",
+  "relative z-[2] -mt-2.5 lg:ml-[14%] lg:w-[84%] lg:-mt-3",
+  "relative z-[1] -mt-2.5 lg:ml-[22%] lg:w-[78%] lg:-mt-3",
 ];
 
-export default function Home() {
-  const demo = isDemoMode();
+function Benefit({ n, title, body, className = "" }: { n: string; title: string; body: string; className?: string }) {
+  return (
+    <div className={`max-w-[30ch] ${className}`}>
+      <p className="fig-md text-ink" aria-hidden="true">
+        {n}
+      </p>
+      <h3 className="t-section mt-4">{title}</h3>
+      <p className="mt-2 text-ink-muted">{body}</p>
+    </div>
+  );
+}
+
+export default function LandingPage() {
   return (
     <>
-      <header className="border-b border-ink bg-paper-raised">
-        <div className="mx-auto flex max-w-[1100px] items-center justify-between px-4 py-3 sm:px-6">
-          <span className="font-display text-[26px] font-semibold leading-none">chaser</span>
-          <nav aria-label="Main" className="flex items-center gap-4 text-[15px]">
-            <a href="/login" className="hover:underline">Log in</a>
-            <a href="/signup" className="btn-secondary">Create account</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-cut focus:bg-tape focus:px-4 focus:py-2 focus:text-ink">
+        Skip to content
+      </a>
+
+      <header className="header">
+        <div className="wrap flex min-h-[var(--header-h)] items-center justify-between gap-6">
+          <Link href="/" className="wordmark text-tape">
+            Chaser
+          </Link>
+          <nav aria-label="Account" className="flex items-center gap-2">
+            <Link href="/login" className="btn btn-small">
+              Log in
+            </Link>
+            <Link href="/signup" className="btn btn-small btn-secondary">
+              Create account
+            </Link>
           </nav>
         </div>
       </header>
 
-      <main>
-        <section className="mx-auto grid max-w-[1100px] gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-20">
-          <div>
-            <h1 className="text-[40px] leading-[44px] sm:text-[60px] sm:leading-[62px]">Late invoices, chased politely.</h1>
-            <p className="mt-5 max-w-[48ch] text-[18px] leading-7 text-ink-muted">
-              Log what you are owed. Chaser shows what is overdue, oldest first, and writes the reminder for you to send.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              {demo ? <TryDemo /> : <a href="/signup" className="btn-primary">Create an account</a>}
-              {demo && <a href="/signup" className="btn-secondary">Create an account</a>}
+      <main id="main">
+        {/* Hero: stacked headline left, the spill right */}
+        <section className="relative z-10 pb-16 pt-10 lg:pb-0 lg:pt-16" aria-labelledby="hero-title">
+          <div className="wrap grid gap-12 lg:grid-cols-hero lg:items-start lg:gap-10">
+            <div className="max-w-copy">
+              <h1 id="hero-title" className="t-display">
+                <span className="block">Late</span>
+                <span className="block">invoices,</span>
+                <span className="block">counted</span>
+                <span className="block">out loud.</span>
+              </h1>
+              <p className="mt-8 max-w-[34ch] text-chalk">
+                Log the invoice. Chaser counts the days, sorts the oldest to the top, and writes a reminder you copy and send yourself.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <TryDemo className="btn btn-primary" />
+                <Link href="/signup" className="btn btn-secondary">
+                  Create account
+                </Link>
+              </div>
+              <p className="t-micro mt-4 text-chalk">Sample data. Nothing is emailed.</p>
             </div>
-            <p className="mt-4 text-[14px] leading-5 text-ink-subtle">Free for up to 5 open invoices. Pro is $9 a month in Stripe test mode.</p>
-          </div>
 
-          <div aria-label="Example of the overdue list">
-            <ul className="space-y-3">
-              {EXAMPLES.map((e) => (
-                <li key={e.client} className="tape border-x border-t border-line px-4 pt-4">
-                  <div className="flex items-center gap-4 pb-3">
-                    <span className={`num w-20 shrink-0 text-[28px] leading-8 ${e.tone}`}>+{e.days}d</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-display text-[18px] font-semibold leading-6">{e.client}</p>
-                      <p className="text-[14px] leading-5 text-ink-muted"><span className="num text-ink">{e.amount}</span> overdue</p>
-                    </div>
-                    <span className="btn-small pointer-events-none">Write reminder</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-[13px] leading-[18px] text-ink-subtle">Example strips. The days count up every day until you mark the invoice paid.</p>
-          </div>
-        </section>
-
-        <section className="border-y border-ink bg-paper-raised">
-          <div className="mx-auto grid max-w-[1100px] gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
-            <div>
-              <h2 className="text-[22px] leading-7">It counts the days for you</h2>
-              <p className="mt-2 text-[15px] leading-[22px] text-ink-muted">Every open invoice shows how many days late it is, with the oldest at the top and a colour that gets stronger as it ages.</p>
-            </div>
-            <div>
-              <h2 className="text-[22px] leading-7">It writes the reminder</h2>
-              <p className="mt-2 text-[15px] leading-[22px] text-ink-muted">Pick friendly, firm or final. The text names the amount and the due date. It never threatens fees or legal action you did not promise.</p>
-            </div>
-            <div>
-              <h2 className="text-[22px] leading-7">It keeps your data yours</h2>
-              <p className="mt-2 text-[15px] leading-[22px] text-ink-muted">Every account sees only its own invoices, and the database enforces that, not just the app. Your plan can only change through a signed message from Stripe.</p>
+            <div role="group" aria-label="Four example invoice strips with sample data" className="lg:-mb-8">
+              {EXAMPLES.map((e, i) => {
+                const style: CSSVars = { "--i": i };
+                return (
+                  <ExampleStrip
+                    key={e.client}
+                    client={e.client}
+                    amount={e.amount}
+                    due={e.due}
+                    daysLate={e.daysLate}
+                    paid={"paid" in e ? e.paid : false}
+                    paidOn={"paidOn" in e ? e.paidOn : undefined}
+                    note={"note" in e ? e.note : undefined}
+                    className={`drop-in ${SPILL[i]}`}
+                    style={style}
+                  />
+                );
+              })}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1100px] px-4 py-14 sm:px-6">
-          <h2 className="text-[28px] leading-[34px]">Two plans</h2>
-          <div className="mt-6 grid max-w-[720px] gap-4 sm:grid-cols-2">
-            <div className="rounded-md border border-line-strong bg-paper-raised p-5">
-              <h3 className="text-[20px] leading-7">Free</h3>
-              <p className="num mt-1 text-[26px] leading-8">$0</p>
-              <p className="mt-2 text-[15px] leading-[22px] text-ink-muted">Up to 5 open invoices, the overdue list and the reminder writer.</p>
+        {/* Benefits: one torn paper band, three ledger entries on staggered baselines */}
+        <section className="paper-band relative z-0" aria-labelledby="benefits-title">
+          <div className="wrap">
+            <h2 id="benefits-title" className="sr-only">
+              What Chaser does
+            </h2>
+            <div className="grid gap-10 md:grid-cols-[1fr_10px_1fr_10px_1fr] md:gap-8">
+              <Benefit n="01" title="You log the invoice once." body="Client, amount, issue date, due date, a note if you want one. That is the whole form." />
+              <div className="perf md:hidden" aria-hidden="true" />
+              <div className="perf-v hidden md:block" aria-hidden="true" />
+              <Benefit n="02" title="It counts every day." body="The oldest overdue invoice sits at the top with the days late printed large. Paper ages as the count grows." className="md:mt-8" />
+              <div className="perf md:hidden" aria-hidden="true" />
+              <div className="perf-v hidden md:block" aria-hidden="true" />
+              <Benefit n="03" title="You copy a reminder." body="Friendly, firm or final, chosen by how late it is. You paste it into your own email and send it yourself." className="md:mt-16" />
             </div>
-            <div className="rounded-md border border-ink bg-paper-raised p-5">
-              <h3 className="text-[20px] leading-7">Pro</h3>
-              <p className="num mt-1 text-[26px] leading-8">$9<span className="text-[15px] text-ink-subtle"> a month</span></p>
-              <p className="mt-2 text-[15px] leading-[22px] text-ink-muted">Unlimited open invoices and CSV export. Billed through Stripe, in test mode here.</p>
+          </div>
+        </section>
+
+        {/* How a strip reads: sticky explanation, the ladder scrolls past it */}
+        <section className="relative z-0 py-20 lg:py-28" aria-labelledby="reads-title">
+          <div className="wrap grid gap-10 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-16">
+            <div className="lg:sticky lg:top-24 lg:self-start">
+              <h2 id="reads-title" className="t-section">
+                How a strip reads
+              </h2>
+              <p className="mt-3 max-w-[30ch] text-chalk">
+                Paper ages, the tear gets rougher, and the number gets louder. The stamp tells you which tone the reminder will take before you open it.
+              </p>
+            </div>
+            <SeverityLadder figures={{ t1: "+3d", t2: "+12d", t3: "+34d" }} className="[--list-gap:12px]" />
+          </div>
+        </section>
+
+        {/* Plans: two receipts of different lengths, pinned at different heights */}
+        <section className="pb-24 pt-4 lg:pb-32" aria-labelledby="plans-title">
+          <div className="wrap">
+            <h2 id="plans-title" className="t-section">
+              Plans
+            </h2>
+            <div className="mt-10 grid gap-8 md:grid-cols-[minmax(0,22rem)_minmax(0,26rem)] md:items-start md:gap-0">
+              <div className="plan-strip md:mt-16">
+                <p className="t-strong">Free</p>
+                <p className="fig-md mt-2">$0</p>
+                <ul className="mt-6 space-y-2">
+                  <li>5 open invoices at a time</li>
+                  <li>Days late counted and sorted</li>
+                  <li>Friendly, firm and final reminders</li>
+                  <li>Copy to send from your own email</li>
+                </ul>
+                <Link href="/signup" className="btn btn-secondary mt-8 w-full">
+                  Create a free account
+                </Link>
+              </div>
+
+              <div className="plan-strip plan-strip--pro relative z-10 md:-ml-4">
+                <p className="t-strong">Pro</p>
+                <p className="fig-md mt-2">
+                  $9 <span className="t-small font-body text-ink-muted">a month</span>
+                </p>
+                <ul className="mt-6 space-y-2">
+                  <li>Unlimited open invoices</li>
+                  <li>CSV export of everything you have logged</li>
+                  <li>Days late counted and sorted</li>
+                  <li>Friendly, firm and final reminders</li>
+                  <li>Copy to send from your own email</li>
+                </ul>
+                <Link href="/signup" className="btn btn-primary mt-8 w-full">
+                  Create account, then upgrade
+                </Link>
+                <p className="hint mt-3">Upgrading happens on the Plan page. Stripe runs in test mode, so no card is charged.</p>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-ink bg-paper-raised">
-        <div className="mx-auto max-w-[1100px] px-4 py-5 text-[13px] leading-[18px] text-ink-muted sm:px-6">
-          Demo project. All invoices and clients are sample data, and Stripe runs in test mode. Chaser writes reminders but does not send email.
+      <footer className="bg-blotter-deep py-8">
+        <div className="wrap t-micro flex flex-wrap items-center justify-between gap-4 text-chalk">
+          <p>Portfolio demo. Sample data. Stripe runs in test mode, no real money moves.</p>
+          <Link href="/login" className="link">
+            Log in
+          </Link>
         </div>
       </footer>
     </>
