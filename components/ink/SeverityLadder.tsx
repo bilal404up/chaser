@@ -1,35 +1,44 @@
-import { FirmRing, FinalBox, PaidStamp } from "./Stamp";
-import { figureClass, type Tier } from "./tier";
-import type { CSSVars } from "./util";
+import { FirmRing, FinalBox, PaidStamp } from './Stamp'
+import { figureClass, type Tier } from './tier'
+import type { CSSVars } from './util'
 
-type Rung = { tier: Exclude<Tier, "due">; range: string; tone: string };
+type Rung = { tier: Exclude<Tier, 'due'>; range: string; tone: string }
 
 const RUNGS: Rung[] = [
-  { tier: "t1", range: "1 to 7 days late", tone: "Friendly reminder" },
-  { tier: "t2", range: "8 to 29 days late", tone: "Firm reminder" },
-  { tier: "t3", range: "30 days late or more", tone: "Final notice" },
-  { tier: "paid", range: "Paid", tone: "Nothing left to send" },
-];
+  { tier: 't1', range: '1 to 7 days late', tone: 'Friendly reminder' },
+  { tier: 't2', range: '8 to 29 days late', tone: 'Firm reminder' },
+  { tier: 't3', range: '30 days late or more', tone: 'Final notice' },
+  { tier: 'paid', range: 'Paid', tone: 'Nothing left to send' },
+]
 
 type Props = {
-  /** optional illustrative figures per tier, e.g. { t1: "+3d", t2: "+12d", t3: "+34d" }; landing page only */
-  figures?: Partial<Record<Tier, string>>;
-  /** stagger the drop-in animation */
-  animate?: boolean;
-  className?: string;
-};
+  figures?: Partial<Record<Tier, string>>
+  /** mount animation (drop-in) */
+  animate?: boolean
+  /** scroll-linked: rungs slide in, t2 and t3 shed a fresher paper overlay, stamps land */
+  scroll?: boolean
+  className?: string
+}
 
-/** The legend. Range and tone are copy, not data, so it is safe on the Plan page. */
-export function SeverityLadder({ figures, animate = false, className = "" }: Props) {
+export function SeverityLadder({ figures, animate = false, scroll = false, className = '' }: Props) {
   return (
-    <ol aria-label="How a strip reads" className={`m-0 list-none p-0 ${className}`}>
+    <ol aria-label="How a strip reads" className={`list-none p-0 m-0 ${className}`}>
       {RUNGS.map((r, i) => {
-        const style: CSSVars = { "--i": i };
-        const figure = figures?.[r.tier];
+        const style: CSSVars = { '--i': i, '--from-x': `${(i % 2 ? 1 : -1) * 24}px`, '--from-y': '0px' }
+        const figure = figures?.[r.tier]
+        const stampCls = `bottom-3 right-5 ${scroll ? 'stamp-on-view' : ''}`
+        const classes = [
+          'strip',
+          `strip--${r.tier}`,
+          animate ? 'drop-in' : '',
+          scroll ? 'slide-on-view' : '',
+          scroll && (r.tier === 't2' || r.tier === 't3') ? 'age-on-view' : '',
+        ].join(' ')
         return (
           <li key={r.tier} className="strip-slot">
-            <div className={`strip strip--${r.tier} ${animate ? "drop-in" : ""}`} style={style}>
-              <div className="grid grid-cols-[auto_1fr] items-center gap-x-4">
+            <div className={classes} style={style}>
+              {scroll && (r.tier === 't2' || r.tier === 't3') ? <i className="age" aria-hidden="true" /> : null}
+              <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 pr-32">
                 {figure ? (
                   <span className={figureClass(r.tier)} aria-hidden="true">
                     {figure}
@@ -40,13 +49,13 @@ export function SeverityLadder({ figures, animate = false, className = "" }: Pro
                   <p className="t-small text-ink-muted">{r.tone}</p>
                 </div>
               </div>
-              {r.tier === "t2" ? <FirmRing className="right-4 top-3" /> : null}
-              {r.tier === "t3" ? <FinalBox className="right-4 top-3" /> : null}
-              {r.tier === "paid" ? <PaidStamp className="right-3 top-7" /> : null}
+              {r.tier === 't2' ? <FirmRing className={stampCls} /> : null}
+              {r.tier === 't3' ? <FinalBox className={stampCls} /> : null}
+              {r.tier === 'paid' ? <PaidStamp className={`bottom-2 right-4 ${scroll ? 'stamp-on-view' : ''}`} /> : null}
             </div>
           </li>
-        );
+        )
       })}
     </ol>
-  );
+  )
 }
