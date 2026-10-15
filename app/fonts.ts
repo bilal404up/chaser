@@ -1,8 +1,8 @@
-import { Bricolage_Grotesque, Archivo, Azeret_Mono } from "next/font/google";
+import { Fraunces, Archivo, Azeret_Mono } from "next/font/google";
 
-export const display = Bricolage_Grotesque({
+export const display = Fraunces({
   subsets: ["latin"],
-  axes: ["opsz", "wdth"],
+  axes: ["opsz"],
   display: "swap",
   variable: "--font-display",
 });

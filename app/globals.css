@@ -146,13 +146,15 @@ body::before {
 /* ------------------------------------------------------------------ */
 
 .t-display {
-  font-family: var(--font-display), system-ui, sans-serif;
-  font-weight: 700;
-  font-variation-settings: "wdth" 92, "opsz" 96;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 600;
   font-size: clamp(3rem, 1.8rem + 5vw, 6.5rem);
   line-height: 1.02;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.02em;
   text-wrap: balance;
+}
+.t-display .block {
+  display: block;
 }
 
 .t-title {
@@ -870,3 +872,8 @@ body::before {
 
 /* utilities last so Tailwind classes can override the component classes above */
 @tailwind utilities;
+
+@keyframes headline-in {
+  from { opacity: 0; transform: translateY(0.25em); letter-spacing: 0.04em; }
+  to { opacity: 1; transform: none; letter-spacing: -0.02em; }
+}
