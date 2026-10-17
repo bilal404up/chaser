@@ -5,6 +5,7 @@ import { PRO_PRICE_CENTS } from "@/lib/plan";
 import { currentUser } from "@/lib/auth";
 import { service } from "@/lib/supabase/service";
 import { todayIso } from "@/lib/dates";
+import { DEMO_USERS, isDemoMode } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin | Chaser" };
@@ -25,12 +26,15 @@ export default async function AdminPage() {
 
   const db = service();
   const today = todayIso();
+  // The demo admin is public, so in demo mode the table lists only the demo accounts, never a real sign-up.
+  let newestQuery = db.from("ch_profiles").select("id, display_name, plan, subscription_status, created_at");
+  if (isDemoMode()) newestQuery = newestQuery.in("display_name", Object.values(DEMO_USERS).map((u) => u.name));
   const [accounts, pro, invoices, overdue, recent] = await Promise.all([
     db.from("ch_profiles").select("id", { count: "exact", head: true }),
     db.from("ch_profiles").select("id", { count: "exact", head: true }).eq("plan", "pro"),
     db.from("ch_invoices").select("id", { count: "exact", head: true }),
     db.from("ch_invoices").select("id", { count: "exact", head: true }).eq("status", "open").lt("due_on", today),
-    db.from("ch_profiles").select("id, display_name, plan, subscription_status, created_at").order("created_at", { ascending: false }).limit(10),
+    newestQuery.order("created_at", { ascending: false }).limit(10),
   ]);
   const accountCount = accounts.count ?? 0;
   const proCount = pro.count ?? 0;
