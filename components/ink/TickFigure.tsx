@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { countStyle } from "./tier"
 
 type Props = {
   value: number
@@ -12,10 +13,12 @@ type Props = {
   /** screen-reader text for the final value */
   label: string
   className?: string
+  /** the count gets louder as it ticks: weight and width follow the current value */
+  vary?: boolean
 }
 
 /** Renders the final value on the server; counts 0 to value once on mount unless motion is reduced. */
-export function TickFigure({ value, prefix = "", suffix = "", delay = 0, duration = 700, label, className = "" }: Props) {
+export function TickFigure({ value, prefix = "", suffix = "", delay = 0, duration = 700, label, className = "", vary = false }: Props) {
   const [n, setN] = useState(value)
 
   useEffect(() => {
@@ -35,7 +38,7 @@ export function TickFigure({ value, prefix = "", suffix = "", delay = 0, duratio
 
   return (
     <>
-      <span className={className} aria-hidden="true">
+      <span className={className} style={vary ? countStyle(n) : undefined} aria-hidden="true">
         {prefix}
         {n}
         {suffix}

@@ -112,17 +112,17 @@ type PresetProps = Pick<StampProps, "fresh" | "className" | "seed" | "label">;
 
 /** 8 to 29 days late. Mirrors the drawer's pre-selected Firm tone. */
 export function FirmRing(props: PresetProps) {
-  return <Stamp text="Firm" ink="ochre" shape="ring" angle={-4} width={60} height={60} label="Firm reminder" {...props} />;
+  return <Stamp text="Firm" ink="ochre" shape="ring" angle={-4} width={56} height={56} label="Firm reminder" {...props} />;
 }
 
 /** 30 days late or more. Mirrors the drawer's pre-selected Final tone. */
 export function FinalBox(props: PresetProps) {
-  return <Stamp text="Final" ink="stamp" shape="box" angle={-6} width={116} height={40} label="Final notice" {...props} />;
+  return <Stamp text="Final" ink="stamp" shape="box" angle={-5} width={104} height={38} label="Final notice" {...props} />;
 }
 
 /** Paid. `paidOn` is the already formatted date from the shared helper ("Sep 4, 2026"). */
 export function PaidStamp({ paidOn, ...props }: PresetProps & { paidOn?: string }) {
   return (
-    <Stamp text="Paid" ink="carbon" shape="box" angle={-8} width={156} height={56} sub={paidOn} label={paidOn ? `Paid on ${paidOn}` : "Paid"} {...props} />
+    <Stamp text="Paid" ink="carbon" shape="box" angle={-8} width={136} height={50} sub={paidOn} label={paidOn ? `Paid on ${paidOn}` : "Paid"} {...props} />
   );
 }

@@ -23,20 +23,20 @@ export function BlankRoll({ label = "An unopened roll of receipt paper", classNa
         </linearGradient>
       </defs>
 
-      <ellipse cx="118" cy="134" rx="92" ry="7" fill="var(--c-blotter-deep)" />
+      <ellipse cx="118" cy="134" rx="92" ry="7" fill="var(--c-desk-deep)" />
 
-      <path d="M118 24H212L208 34 216 44 209 54 217 64 210 74 218 84 211 94 217 104 209 114 215 126H118Z" fill="var(--c-tape)" />
+      <path d="M118 24H212L208 34 216 44 209 54 217 64 210 74 218 84 211 94 217 104 209 114 215 126H118Z" fill="var(--c-paper)" />
       <path d="M118 24H212L208 34 216 44 209 54 217 64 210 74 218 84 211 94 217 104 209 114 215 126H118Z" fill={`url(#${tail})`} />
       <line x1="134" y1="52" x2="196" y2="52" stroke="var(--c-ink-faint)" strokeWidth="2" strokeDasharray="2 6" />
       <line x1="134" y1="98" x2="196" y2="98" stroke="var(--c-ink-faint)" strokeWidth="2" strokeDasharray="2 6" />
 
-      <rect x="44" y="24" width="78" height="102" fill="var(--c-tape)" />
+      <rect x="44" y="24" width="78" height="102" fill="var(--c-paper)" />
       <rect x="44" y="24" width="78" height="102" fill={`url(#${body})`} />
 
-      <ellipse cx="44" cy="75" rx="24" ry="51" fill="var(--c-tape-aged)" />
+      <ellipse cx="44" cy="75" rx="24" ry="51" fill="var(--c-paper-2)" />
       <ellipse cx="44" cy="75" rx="18" ry="39" fill="none" stroke="var(--c-ink-faint)" strokeWidth="1" />
       <ellipse cx="44" cy="75" rx="12" ry="26" fill="none" stroke="var(--c-ink-faint)" strokeWidth="1" />
-      <ellipse cx="44" cy="75" rx="6" ry="13" fill="var(--c-blotter-deep)" />
+      <ellipse cx="44" cy="75" rx="6" ry="13" fill="var(--c-desk-deep)" />
     </svg>
   );
 }

@@ -10,6 +10,7 @@ const WHO: { who: Who; label: string }[] = [
   { who: "admin", label: "Admin" },
 ];
 
+/** Slim ribbon above the header. It sits in the page flow and scrolls away, so it never covers content. */
 export default function DemoBar() {
   const router = useRouter();
   const [busy, setBusy] = useState<Who | null>(null);
@@ -39,20 +40,22 @@ export default function DemoBar() {
   }
 
   return (
-    <div className="demo-bar" role="region" aria-label="Demo controls">
-      <div className="wrap relative flex h-full flex-wrap items-center gap-x-4 gap-y-2 py-2">
-        <span className="demo-tag">Demo</span>
-        <p className="t-micro min-w-0 flex-1 leading-tight text-chalk">Sample data. Stripe test mode, no real money moves.</p>
-        <div className="flex basis-full items-center gap-2 md:ml-auto md:basis-auto" role="group" aria-label="Sign in as">
-          <span className="t-micro hidden text-chalk md:inline">Sign in as:</span>
+    <div className="demo-ribbon" role="region" aria-label="Demo controls">
+      <div className="wrap flex flex-wrap items-center gap-x-4 gap-y-0 py-1 sm:min-h-[40px]">
+        <p className="flex min-w-0 flex-1 items-center gap-3 py-1 text-[0.8125rem] leading-tight">
+          <span className="badge badge--demo">Demo</span>
+          <span className="min-w-0">Sample data. No real money moves.</span>
+        </p>
+        <div className="-ml-2.5 flex basis-full items-center gap-1 sm:ml-0 sm:basis-auto" role="group" aria-label="Sign in as">
+          <span className="t-label hidden pr-1 sm:inline">Sign in as</span>
           {WHO.map(({ who, label }) => (
-            <button key={who} type="button" className="btn btn-small btn-secondary flex-1 md:flex-none" onClick={() => signIn(who)} disabled={busy !== null} data-busy={busy === who || undefined}>
+            <button key={who} type="button" className="ribbon-btn" onClick={() => signIn(who)} disabled={busy !== null} aria-busy={busy === who || undefined}>
               {busy === who ? "Signing in" : label}
             </button>
           ))}
         </div>
         {error ? (
-          <p role="alert" className="chip-error absolute bottom-full left-4 right-4 mb-2 md:left-auto">
+          <p role="alert" className="chip-error mb-2 basis-full">
             {error}
           </p>
         ) : null}

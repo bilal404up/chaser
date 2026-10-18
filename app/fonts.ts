@@ -1,21 +1,17 @@
-import { Fraunces, Archivo, Azeret_Mono } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
-export const display = Fraunces({
-  subsets: ["latin"],
-  axes: ["opsz"],
-  display: "swap",
-  variable: "--font-display",
-});
-
-export const body = Archivo({
+/** One family for display, UI and figures. Variable on weight and width (wdth 62 to 125). */
+export const sans = Archivo({
   subsets: ["latin"],
   axes: ["wdth"],
   display: "swap",
-  variable: "--font-body",
+  variable: "--font-sans",
 });
 
-export const mono = Azeret_Mono({
+/** Receipt meta only: due dates, invoice lines, the letter header. */
+export const mono = IBM_Plex_Mono({
   subsets: ["latin"],
+  weight: ["400", "500"],
   display: "swap",
   variable: "--font-mono",
 });

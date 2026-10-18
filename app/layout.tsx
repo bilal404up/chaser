@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
-import { body, display, mono } from "./fonts";
+import { mono, sans } from "./fonts";
 import DemoBar from "@/components/DemoBar";
 import { isDemoMode } from "@/lib/demo";
 
 export const metadata: Metadata = {
-  title: "Chaser: late invoices, chased politely",
-  description: "Log what you are owed. Chaser shows what is overdue and writes the reminder. A demo subscription app with a free plan and a Pro plan in Stripe test mode. Sample data.",
+  title: "Chaser: late invoices, counted out loud",
+  description:
+    "An invoice tracker for freelancers. Chaser counts the days overdue, sorts the oldest first and writes a reminder you send yourself. A portfolio demo with sample data and a free and Pro plan; no real money moves.",
 };
 
 export const dynamic = "force-dynamic";
@@ -15,10 +16,10 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: ReactNode }) {
   const demo = isDemoMode();
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body data-demo={demo ? "true" : undefined}>
-        {children}
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+      <body>
         {demo ? <DemoBar /> : null}
+        {children}
       </body>
     </html>
   );
