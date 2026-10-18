@@ -145,3 +145,14 @@ test("rejects bad invoices instead of coercing them", () => {
   ];
   for (const [name, input] of bad) assert.equal(validateInvoice(input).ok, false, name);
 });
+
+test("cleanName drops a trailing plan label and keeps everything else", async () => {
+  const { cleanName } = await import("../lib/names");
+  assert.equal(cleanName("Alex (free plan)"), "Alex");
+  assert.equal(cleanName("Sam (pro plan)"), "Sam");
+  assert.equal(cleanName("Demo admin"), "Demo admin");
+  assert.equal(cleanName("Ana (Studio)"), "Ana (Studio)");
+  assert.equal(cleanName("  "), "");
+  const { body } = reminderText({ tone: "friendly", clientName: "Kim", amountCents: 100, dueOn: "2026-01-01", daysOverdue: 3, senderName: cleanName("Alex (free plan)") });
+  assert.ok(body.endsWith("Thanks,\nAlex"));
+});
