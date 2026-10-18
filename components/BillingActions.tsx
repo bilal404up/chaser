@@ -7,7 +7,7 @@ import { useState } from "react";
 type Props = { plan: "free" | "pro"; hasCustomer: boolean; billingReady: boolean; proSwitch: boolean };
 type Busy = "checkout" | "portal" | "switch" | null;
 
-const NOT_CONNECTED = "Billing is not connected in this demo yet. Stripe test keys are needed.";
+const NOT_CONNECTED = "Stripe checkout is not connected yet.";
 
 async function post(url: string, body?: unknown) {
   const res = await fetch(url, {
@@ -19,10 +19,24 @@ async function post(url: string, body?: unknown) {
   return { res, data };
 }
 
+function Status({ children }: { children: string }) {
+  return (
+    <p className="flex items-start gap-2.5 text-[0.9375rem] leading-snug text-chalk">
+      <span aria-hidden="true" className="mt-[0.4em] block h-2 w-2 shrink-0 rounded-full bg-chalk" />
+      {children}
+    </p>
+  );
+}
+
+/**
+ * Real Stripe Checkout and Portal when test keys are set. Without keys, in demo mode, a demo switch flips the plan
+ * so visitors can see Pro; no money moves either way.
+ */
 export default function BillingActions({ plan, hasCustomer, billingReady, proSwitch }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState("");
+  const pro = plan === "pro";
 
   async function go(kind: "checkout" | "portal") {
     setBusy(kind);
@@ -45,7 +59,7 @@ export default function BillingActions({ plan, hasCustomer, billingReady, proSwi
     setBusy("switch");
     setError("");
     try {
-      const { res, data } = await post("/api/demo/pro", { on: plan !== "pro" });
+      const { res, data } = await post("/api/demo/pro", { on: !pro });
       if (!res.ok) {
         setError(data.error ?? "The demo switch did not work. Try again.");
         return;
@@ -59,48 +73,52 @@ export default function BillingActions({ plan, hasCustomer, billingReady, proSwi
   }
 
   return (
-    <div className="grid gap-4">
-      {plan === "free" ? (
-        <div className="flex flex-wrap items-center gap-4">
-          <button type="button" className="btn btn-carbon" onClick={() => go("checkout")} disabled={busy !== null} data-busy={busy === "checkout" || undefined}>
-            Upgrade to Pro, $9 a month
-          </button>
-          <Link href="/dashboard" className="link">
-            Stay on Free
-          </Link>
-        </div>
+    <div className="grid gap-5">
+      {billingReady ? (
+        <>
+          <Status>Stripe Checkout in test mode. No card is charged.</Status>
+          {!pro ? (
+            <div className="grid gap-3">
+              <button type="button" className="btn btn-carbon w-full" onClick={() => go("checkout")} disabled={busy !== null} data-busy={busy === "checkout" || undefined}>
+                Upgrade to Pro, $9 a month
+              </button>
+              <Link href="/dashboard" className="link t-small self-center justify-self-center text-chalk">
+                Stay on Free
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <button type="button" className="btn btn-primary w-full" onClick={() => go("portal")} disabled={!hasCustomer || busy !== null} data-busy={busy === "portal" || undefined}>
+                Manage subscription
+              </button>
+              {!hasCustomer ? <p className="hint">No Stripe customer is attached to this account yet.</p> : null}
+            </div>
+          )}
+        </>
+      ) : proSwitch ? (
+        <>
+          <Status>Stripe checkout is off in this demo. Use the demo switch below to try Pro.</Status>
+          <section aria-labelledby="demo-switch-title" className="grid gap-3 border-t border-[color:var(--c-desk-rule)] pt-5">
+            <div className="flex items-center gap-3">
+              <span className="badge badge--demo">Demo</span>
+              <h3 id="demo-switch-title" className="t-strong">
+                Demo upgrade
+              </h3>
+            </div>
+            <p className="t-small text-chalk">Flips this account between Free and Pro. No card, no charge, no real money moves.</p>
+            <button type="button" className={`btn w-full ${pro ? "btn-secondary" : "btn-primary"}`} onClick={toggle} disabled={busy !== null} data-busy={busy === "switch" || undefined}>
+              {busy === "switch" ? "Switching" : pro ? "Switch back to Free (demo)" : "Try Pro (demo)"}
+            </button>
+          </section>
+        </>
       ) : (
-        <div className="flex flex-wrap items-center gap-4">
-          <button type="button" className="btn btn-primary" onClick={() => go("portal")} disabled={!hasCustomer || busy !== null} data-busy={busy === "portal" || undefined}>
-            Manage subscription
-          </button>
-          {!hasCustomer ? <p className="hint">No Stripe customer is attached to this account yet.</p> : null}
-        </div>
+        <Status>{NOT_CONNECTED}</Status>
       )}
-
-      {!billingReady ? (
-        <p className="hint">Stripe is not connected in this demo. Checkout and the signed webhook need Stripe test keys before the upgrade button does anything real.</p>
-      ) : null}
 
       {error ? (
         <p role="alert" className="chip-error">
           {error}
         </p>
-      ) : null}
-
-      {proSwitch ? (
-        <section aria-labelledby="demo-switch-title" className="mt-2 bg-tape-aged p-4 ring-[1.5px] ring-inset ring-ink">
-          <div className="flex items-center gap-3">
-            <span className="demo-tag">Demo</span>
-            <h3 id="demo-switch-title" className="t-strong">
-              Demo switch
-            </h3>
-          </div>
-          <p className="t-small mt-2 text-ink-muted">Flips this account between Free and Pro without Stripe. For the demo only.</p>
-          <button type="button" className="btn btn-secondary mt-3" onClick={toggle} disabled={busy !== null} data-busy={busy === "switch" || undefined}>
-            {plan === "pro" ? "Switch to Free (demo)" : "Switch to Pro (demo)"}
-          </button>
-        </section>
       ) : null}
     </div>
   );

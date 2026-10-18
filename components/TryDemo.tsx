@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function TryDemo({ className = "btn-primary" }: { className?: string }) {
+export function TryDemo({ className = "btn btn-primary", wrapClassName = "" }: { className?: string; wrapClassName?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <span className={`flex flex-col items-stretch gap-1 ${wrapClassName}`}>
       <button
         type="button"
         className={className}
         disabled={busy}
+        data-busy={busy || undefined}
         onClick={async () => {
           setBusy(true);
           setError(null);
@@ -28,10 +29,10 @@ export function TryDemo({ className = "btn-primary" }: { className?: string }) {
           }
         }}
       >
-        {busy ? "Opening" : "Open the demo"}
+        {busy ? "Opening" : "Open the demo board"}
       </button>
       {error && (
-        <span role="alert" className="text-[13px] text-error">
+        <span role="alert" className="t-small text-stamp-lit">
           {error}
         </span>
       )}
