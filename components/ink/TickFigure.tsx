@@ -15,26 +15,33 @@ type Props = {
   className?: string
   /** the count gets louder as it ticks: weight and width follow the current value */
   vary?: boolean
+  /** where the count starts from (default 0); used when a figure re-ticks to a new value */
+  from?: number
 }
 
 /** Renders the final value on the server; counts 0 to value once on mount unless motion is reduced. */
-export function TickFigure({ value, prefix = "", suffix = "", delay = 0, duration = 700, label, className = "", vary = false }: Props) {
-  const [n, setN] = useState(value)
+export function TickFigure({ value, prefix = "", suffix = "", delay = 0, duration = 700, label, className = "", vary = false, from }: Props) {
+  // With no "from", the count starts at 0 on mount. Passing "from" starts it there instead, with no flash of the final value.
+  const [n, setN] = useState(from ?? value)
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setN(value)
+      return
+    }
     let raf = 0
     const start = performance.now() + delay
-    setN(0)
+    const origin = from ?? 0
+    setN(origin)
     const step = (t: number) => {
       const p = Math.min(1, Math.max(0, (t - start) / duration))
       const eased = 1 - Math.pow(1 - p, 3)
-      setN(Math.round(eased * value))
+      setN(Math.round(origin + (value - origin) * eased))
       if (p < 1) raf = requestAnimationFrame(step)
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
-  }, [value, delay, duration])
+  }, [value, delay, duration, from])
 
   return (
     <>

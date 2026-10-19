@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { TryDemo } from '@/components/TryDemo'
 import SiteHeader from '@/components/SiteHeader'
 import PlanReceipt from '@/components/PlanReceipt'
-import { Count, ExampleStrip, StripFace, TierStamp, tierFor, figureLabel, type CSSVars } from '@/components/ink'
+import { ExampleStrip, type CSSVars } from '@/components/ink'
+import { Reveal } from '@/components/motion/Reveal'
+import { CountUp } from '@/components/motion/CountUp'
+import { AgingStrip } from '@/components/AgingStrip'
 import { reminderText, type Tone } from '@/lib/reminders'
-import { formatUsd } from '@/lib/money'
 import { billingConfigured } from '@/lib/stripe'
 import { proSwitchAvailable } from '@/lib/demo'
 
@@ -35,6 +37,33 @@ const BENEFITS = [
   },
 ]
 
+/* Small visuals for the three steps. Plain JSX and CSS, each plays once when the sheet comes into view. */
+function MiniForm() {
+  return (
+    <div className="mini-form">
+      <span className="mini-row">
+        <span className="mini-text">Harbor &amp; Co</span>
+      </span>
+      <span className="mini-rule mini-fill" style={{ '--i': 1 } as CSSVars} />
+      <span className="mini-rule mini-fill" style={{ '--i': 2 } as CSSVars} />
+    </div>
+  )
+}
+
+function MiniCount() {
+  return (
+    <CountUp className="mini-count" value={3} from={1} ms={900} prefix="+" suffix="d" />
+  )
+}
+
+function MiniEnvelope() {
+  return (
+    <span className="mini-env">
+      <span className="mini-flap" />
+    </span>
+  )
+}
+
 function proHint() {
   if (billingConfigured()) return 'Upgrade on the Plan page through Stripe Checkout in test mode. No card is charged.'
   if (proSwitchAvailable()) return 'In this demo, use the Free and Pro switch on the Plan page. No card, no charge.'
@@ -52,11 +81,11 @@ export default function LandingPage() {
           <div className="wrap grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
             <div className="lg:pt-4">
               <p className="t-meta text-chalk">Invoice tracker for freelancers</p>
-              <h1 id="hero-title" className="t-display mt-6">
-                <span>Late</span>
-                <span>invoices,</span>
-                <span>counted</span>
-                <span>out loud.</span>
+              <h1 id="hero-title" className="t-display print mt-6">
+                <span style={{ '--l': 0 } as CSSVars}>Late</span>
+                <span style={{ '--l': 1 } as CSSVars}>invoices,</span>
+                <span style={{ '--l': 2 } as CSSVars}>counted</span>
+                <span style={{ '--l': 3 } as CSSVars}>out loud.</span>
               </h1>
               <p className="t-lede mt-8 max-w-[34ch] text-chalk">
                 Log the invoice. Chaser counts the days, sorts the oldest to the top, and writes a reminder you copy and
@@ -72,7 +101,9 @@ export default function LandingPage() {
             </div>
 
             <div role="group" aria-label="Four example invoice strips with sample data" className="min-w-0">
-              <div className="slot" aria-hidden="true" />
+              <div className="slot" aria-hidden="true">
+                <span className="slot-label">CHASER</span>
+              </div>
               <ul className="m-0 grid list-none gap-3 p-0">
                 {EXAMPLES.map((e, i) => {
                   const style: CSSVars = { '--i': i }
@@ -87,7 +118,8 @@ export default function LandingPage() {
                         paidOn={'paidOn' in e ? e.paidOn : undefined}
                         paidLate={'paidLate' in e ? e.paidLate : undefined}
                         note={'note' in e ? e.note : undefined}
-                        tickDelay={200 + i * 420 + 260}
+                        tickDelay={650 + i * 420 + 260}
+                        stampDelay={650 + i * 420 + 260 + 700}
                         className="feed-in"
                         style={style}
                       />
@@ -104,27 +136,35 @@ export default function LandingPage() {
           <h2 id="benefits-title" className="sr-only">
             What Chaser does
           </h2>
-          <div className="sheet sheet--shadow grid md:grid-cols-3">
+          <Reveal as="div" stagger={90} className="sheet sheet--shadow grid md:grid-cols-3">
             {BENEFITS.map((b, i) => (
               <div
                 key={b.n}
                 className={`px-6 pb-10 pt-8 md:px-8 md:pb-12 md:pt-10 ${i > 0 ? 'border-t border-[color:var(--c-ink-rule)] md:border-l md:border-t-0' : ''}`}
               >
-                <p className="t-meta text-ink-2">Step</p>
-                <p className="fig-xl mt-2 text-ink" aria-hidden="true">
-                  {b.n}
-                </p>
+                <p className="t-meta text-ink-2">Step {b.n}</p>
+                <div className="mt-6 h-14" aria-hidden="true">
+                  {i === 0 ? <MiniForm /> : i === 1 ? <MiniCount /> : <MiniEnvelope />}
+                </div>
                 <h3 className="t-section mt-6">{b.title}</h3>
                 <p className="mt-2 max-w-[34ch] text-ink-2">{b.body}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </section>
 
-        {/* Three tones: static, real subject lines */}
-        <section className="py-24 lg:py-32" aria-labelledby="tones-title">
-          <div className="wrap grid gap-10 lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-16">
-            <div>
+        {/* Three tones: one strip that ages as you scroll on wide screens; three static strips otherwise */}
+        <AgingStrip
+          rows={TONE_ROWS.map((t) => ({
+            name: t.name,
+            range: t.range,
+            days: t.days,
+            client: t.client,
+            cents: t.cents,
+            subject: reminderText({ tone: t.tone, clientName: t.client, amountCents: t.cents, dueOn: t.dueOn, daysOverdue: t.days, senderName: '' }).subject,
+          }))}
+          heading={
+            <>
               <h2 id="tones-title" className="t-title">
                 Three tones, set by the calendar
               </h2>
@@ -132,37 +172,9 @@ export default function LandingPage() {
                 1 to 7 days late: friendly. 8 to 29: firm. 30 or more: final. The stamp on each strip tells you which one you
                 will get.
               </p>
-            </div>
-            <ol className="m-0 grid list-none gap-3 p-0" aria-label="Reminder tones">
-              {TONE_ROWS.map((t) => {
-                const tier = tierFor(t.days, false)
-                const { subject } = reminderText({ tone: t.tone, clientName: t.client, amountCents: t.cents, dueOn: t.dueOn, daysOverdue: t.days, senderName: '' })
-                return (
-                  <li key={t.tone}>
-                    <StripFace
-                      tier={tier}
-                      label={`${t.name} reminder, ${t.range}. ${figureLabel(t.days, false)}`}
-                      count={<Count daysLate={t.days} />}
-                      name={t.name}
-                      note={
-                        <>
-                          <span className="block">{t.range}</span>
-                          <span className="mt-2 block text-ink">
-                            <span className="t-meta mr-2 text-ink-2">Subject</span>
-                            {subject}
-                          </span>
-                        </>
-                      }
-                      amount={formatUsd(t.cents)}
-                      meta={t.client}
-                      stamp={<TierStamp tier={tier} />}
-                    />
-                  </li>
-                )
-              })}
-            </ol>
-          </div>
-        </section>
+            </>
+          }
+        />
 
         {/* Plans: two receipts, the same lists as the Plan page */}
         <section className="pb-24 lg:pb-32" aria-labelledby="plans-title">
@@ -174,38 +186,50 @@ export default function LandingPage() {
                 </h2>
                 <p className="mt-5 max-w-[34ch] text-chalk">{proHint()}</p>
               </div>
-              <div className="grid gap-6 md:grid-cols-2">
-                <PlanReceipt plan="free">
-                  <Link href="/signup" className="btn btn-secondary w-full">
-                    Create a free account
-                  </Link>
-                </PlanReceipt>
-                <PlanReceipt plan="pro">
-                  <Link href="/signup" className="btn btn-carbon w-full">
-                    Create account, then upgrade
-                  </Link>
-                </PlanReceipt>
-              </div>
+              <Reveal as="div" stagger={120} className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <PlanReceipt plan="free">
+                    <Link href="/signup" className="btn btn-secondary w-full">
+                      Create a free account
+                    </Link>
+                  </PlanReceipt>
+                </div>
+                <div className="plan-lift">
+                  <PlanReceipt plan="pro" ribbon="Unlimited open invoices" animatePrice className="plan-lift-card">
+                    <Link href="/signup" className="btn btn-primary w-full">
+                      Create account, then upgrade
+                    </Link>
+                  </PlanReceipt>
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer: a straight-cut paper band */}
+      {/* Footer: a paper band with a torn top edge; the wordmark prints up as you reach it */}
       <footer className="paper">
-        <div className="wrap flex flex-wrap items-end justify-between gap-x-10 gap-y-8 pb-10 pt-14">
-          <div className="min-w-0">
+        <div className="wrap pb-10 pt-14">
+          <Reveal>
             <p className="wordmark wordmark--big">Chaser</p>
-            <p className="t-small mt-5 max-w-[40ch] text-ink-2">Portfolio demo with sample data. No real money moves.</p>
+          </Reveal>
+          <div className="mt-8 flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
+            <p className="t-small max-w-[40ch] text-ink-2">Portfolio demo with sample data. No real money moves.</p>
+            <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <Link href="/login" className="link font-semibold">
+                Log in
+              </Link>
+              <Link href="/signup" className="link font-semibold">
+                Create account
+              </Link>
+              <a href="https://portfolio-v2-gilt-rho-53.vercel.app" target="_blank" rel="noopener noreferrer" className="link font-semibold">
+                Built by Bilal<span className="sr-only"> (opens in a new tab)</span>
+              </a>
+              <a href="https://github.com/bilal404up/chaser" target="_blank" rel="noopener noreferrer" className="link font-semibold">
+                GitHub<span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            </nav>
           </div>
-          <nav aria-label="Footer" className="flex items-center gap-6">
-            <Link href="/login" className="link font-semibold">
-              Log in
-            </Link>
-            <Link href="/signup" className="link font-semibold">
-              Create account
-            </Link>
-          </nav>
         </div>
       </footer>
     </>

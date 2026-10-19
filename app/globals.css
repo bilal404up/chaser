@@ -250,16 +250,17 @@ body {
   --paper: var(--c-paper);
   position: relative;
   isolation: isolate;
-  padding: 16px 16px 20px;
+  padding: 13px 16px 16px;
   box-shadow: var(--shadow-paper);
   transition: transform var(--t-hover) var(--ease);
 }
 .strip--t2 { --paper: var(--c-paper-2); }
 .strip--t3 { --paper: var(--c-paper-3); }
-.strip--paid { --paper: #E9E6DD; }
+.strip--paid { --paper: #E9E6DD; opacity: 0.88; }
+.strip--paid:hover { opacity: 1; }
 
 @media (min-width: 768px) {
-  .strip { padding: 20px 24px 22px; }
+  .strip { padding: 16px 24px 18px; }
 }
 
 /* anatomy: count / name and note / amount and due / actions / stamp */
@@ -338,13 +339,121 @@ body {
 }
 .stamp[data-fresh="true"] { animation: stamp-land var(--t-enter) var(--ease) both; }
 
+/* ---- aging strip: one strip that ages as you scroll (wide screens, motion allowed only) ---- */
+.aging--pinned { position: relative; height: 220vh; }
+.aging-sticky {
+  position: sticky;
+  top: calc(var(--header-h) + 12vh);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  padding-top: 40px;
+}
+@media (min-width: 1024px) {
+  .aging-sticky { grid-template-columns: 22rem minmax(0, 1fr); gap: 64px; }
+}
+.aging-marker { position: absolute; left: 0; right: 0; height: 70vh; pointer-events: none; }
+/* the paper darkens through the tier tone; the transition runs on the strip's own paper layer */
+.aging-strip .strip::before { transition: background-color 400ms var(--ease); }
+.aging-stages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.aging-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--c-desk-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--c-chalk, #ECE8DD);
+  font: 600 0.875rem/1 var(--font-sans), system-ui, sans-serif;
+  cursor: pointer;
+  transition: border-color var(--t-hover) var(--ease), background-color var(--t-hover) var(--ease);
+}
+.aging-stage:hover { border-color: currentColor; }
+.aging-stage[aria-pressed="true"] { border-color: currentColor; background: rgba(236, 232, 221, 0.06); }
+.aging-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  background: transparent;
+  transition: background-color var(--t-enter) var(--ease);
+}
+.aging-stage[aria-pressed="true"] .aging-dot--friendly { background: var(--c-paper); border-color: var(--c-paper); }
+.aging-stage[aria-pressed="true"] .aging-dot--firm { background: var(--c-ochre); border-color: var(--c-ochre); }
+.aging-stage[aria-pressed="true"] .aging-dot--final { background: var(--c-stamp); border-color: var(--c-stamp); }
+
+/* ---- steps sheet: small visuals, each plays once in view ---- */
+.mini-form { display: grid; gap: 7px; height: 100%; align-content: center; }
+.mini-row { display: block; height: 14px; }
+.mini-text { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.75rem; line-height: 14px; color: var(--c-ink); }
+.mini-rule { display: block; height: 2px; background: var(--c-ink-rule); transform-origin: left center; }
+.mini-fill { transition: transform 500ms var(--kit-ease) calc(var(--i, 1) * 120ms); }
+html.js [data-reveal]:not([data-in]) .mini-fill { transform: scaleX(0); }
+
+.mini-count { display: block; font-family: var(--font-mono), ui-monospace, monospace; font-weight: 600; font-size: 2.25rem; line-height: 1; color: var(--c-ink); font-variant-numeric: tabular-nums; }
+
+.mini-env {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 32px;
+  border: 1.5px solid var(--c-ink);
+  border-radius: 2px;
+  background: var(--c-paper-2);
+}
+.mini-flap {
+  position: absolute;
+  left: -1.5px;
+  right: -1.5px;
+  top: -1.5px;
+  height: 17px;
+  background: var(--c-ink);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: top center;
+  transition: transform 500ms var(--kit-ease) 300ms;
+}
+html.js [data-reveal]:not([data-in]) .mini-flap { transform: rotateX(180deg); }
+
+/* ---- footer: torn top edge, same tooth mask as the strips ---- */
+footer.paper { position: relative; }
+footer.paper::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -8px;
+  height: 8px;
+  background: var(--c-paper);
+  -webkit-mask: var(--tooth) repeat-x bottom / 16px 8px;
+  mask: var(--tooth) repeat-x bottom / 16px 8px;
+}
+
+/* ---- plans: the Pro card sits a little higher, with a ribbon ---- */
+.plan-ribbon {
+  margin: -24px -24px 20px;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 24px;
+  background: var(--c-ink);
+  color: var(--c-paper);
+}
+@media (min-width: 768px) {
+  .plan-ribbon { margin: -24px -28px 20px; padding: 0 28px; }
+  .plan-lift { position: relative; top: -8px; }
+  .plan-lift > .plan-lift-card.sheet--shadow { filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3)) drop-shadow(0 22px 26px rgba(0, 0, 0, 0.55)); }
+}
+
 /* ---- printer slot (landing hero only) --------------------------------- */
 .slot {
   position: relative;
   z-index: 5;
-  height: 18px;
-  margin-inline: -10px;
-  border-radius: 3px;
+  height: 22px;
+  margin-inline: -8px;
+  border-radius: 6px 6px 3px 3px;
   background: var(--c-desk-deep);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 14px -6px rgba(0, 0, 0, 0.7);
 }
@@ -352,11 +461,38 @@ body {
   content: "";
   position: absolute;
   left: 14px; right: 14px;
-  top: 8px;
+  top: 12px;
   height: 3px;
   border-radius: 2px;
   background: #000;
 }
+/* the lip under the slot */
+.slot::after {
+  content: "";
+  position: absolute;
+  left: 10px; right: 10px;
+  bottom: -3px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: rgba(0, 0, 0, 0.55);
+}
+/* small embossed name in the slot, decorative only */
+.slot-label {
+  position: absolute;
+  right: 14px;
+  top: 2px;
+  font: 600 8px/1 var(--font-mono, ui-monospace), monospace;
+  letter-spacing: 0.2em;
+  color: rgba(236, 232, 221, 0.18);
+}
+
+/* overdue split by tone: a four-pixel bar that grows once in view */
+.tone-bar { display: flex; height: 4px; background: rgba(236, 232, 221, 0.12); }
+.tone-seg { display: block; height: 100%; min-width: 0; transform-origin: left center; transition: transform 700ms var(--ease); }
+.tone-seg--friendly { background: var(--c-paper); }
+.tone-seg--firm { background: var(--c-ochre); }
+.tone-seg--final { background: var(--c-stamp-lit); }
+html.js .tone-bar:not([data-in]) .tone-seg { transform: scaleX(0); }
 
 /* ---- ledger header: three equal figures -------------------------------- */
 .ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
@@ -441,6 +577,19 @@ body {
 }
 .btn-text:hover { text-decoration-color: currentColor; }
 .btn-text:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Strip actions read as small bordered buttons. 40px high: the row-action size allowed by the 44px tap rule. */
+.s-actions .btn-text {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--c-ink-rule);
+  border-radius: 4px;
+  font-size: 13px;
+  text-decoration: none;
+  transition: background-color var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease), transform 120ms var(--kit-ease);
+}
+.s-actions .btn-text:hover { background: rgba(21, 23, 25, 0.06); border-color: var(--c-ink); }
+.s-actions .btn-text:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .btn-icon {
   display: inline-grid;
@@ -652,7 +801,14 @@ textarea.field { resize: vertical; }
 /* ------------------------------------------------------------------ */
 
 /* hero only: each strip is fed out of the slot, one after another */
-.feed-in { animation: tape-feed var(--t-print) steps(14, end) both; animation-delay: calc(var(--i, 0) * 420ms + 200ms); }
+.feed-in { animation: tape-feed var(--t-print) steps(14, end) both; animation-delay: calc(var(--i, 0) * 420ms + 650ms); }
+/* hero strips with a stamp: the strip shakes once when its stamp lands (the shake runs after the feed, so it has no fill) */
+.feed-in.strip-landed {
+  animation: tape-feed var(--t-print) steps(14, end) both, strip-shake 260ms var(--ease) normal none;
+  animation-delay: calc(var(--i, 0) * 420ms + 650ms), var(--land-delay, 0ms);
+}
+/* the stamp waits for its strip's count to finish; the delay comes from the inline --stamp-delay */
+.strip .stamp[data-fresh="true"] { animation-delay: var(--stamp-delay, 0ms); }
 
 /* board rows simply rise in */
 .rise-in { animation: rise var(--t-enter) var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
@@ -663,10 +819,14 @@ textarea.field { resize: vertical; }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes stamp-land {
-  0%   { opacity: 0; transform: scale(1.5) rotate(calc(var(--stamp-rot, -6deg) - 8deg)); }
-  70%  { opacity: 1; transform: scale(0.96) rotate(var(--stamp-rot, -6deg)); }
-  100% { opacity: 1; transform: scale(1) rotate(var(--stamp-rot, -6deg)); }
+  0%   { opacity: 0; transform: rotate(var(--stamp-rot, -6deg)) scale(1.8); }
+  60%  { opacity: 1; transform: rotate(var(--stamp-rot, -6deg)) scale(0.94); }
+  100% { opacity: 1; transform: rotate(var(--stamp-rot, -6deg)) scale(1); }
 }
+@keyframes strip-shake { 0%, 100% { transform: none; } 30% { transform: translateY(2px); } 60% { transform: translateY(-1px); } }
+@keyframes print-line { from { clip-path: inset(0 0 100% 0); transform: translateY(-6px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+/* the headline prints one line at a time on load */
+.t-display.print > span { animation: print-line 520ms steps(8, end) both; animation-delay: calc(120ms + var(--l, 0) * 140ms); }
 @keyframes strip-settle { 0% { transform: translateY(0); } 40% { transform: translateY(2px); } 100% { transform: translateY(0); } }
 @keyframes strip-leave { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(32px); } }
 @keyframes drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }

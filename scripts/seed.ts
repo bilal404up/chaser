@@ -23,16 +23,17 @@ const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshTo
 
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-// [client, amount in dollars, days from today the invoice is due (negative = overdue), paid?]
-type Row = [string, number, number, boolean];
+// [client, amount in dollars, days from today the invoice is due (negative = overdue), paid after N days?]
+// paid after: false = still open; a number = paid that many days after the due date (0 = on time, negative = early).
+type Row = [string, number, number, false | number];
 const FREE: Row[] = [
   ["Northwind Studio", 2400, -34, false],
   ["Harbor & Pine", 860, -12, false],
   ["Kestrel Labs", 1150, -3, false],
   ["Lumen Bakery", 480, 6, false],
   ["Oakridge Dental", 1900, 19, false],
-  ["Fable Print Co.", 320, -20, true],
-  ["Bluebird Cafe", 275, -41, true],
+  ["Fable Print Co.", 320, -20, 4],
+  ["Bluebird Cafe", 275, -41, -1],
 ];
 const PRO: Row[] = [
   ["Meridian Health", 5200, -47, false],
@@ -47,17 +48,17 @@ const PRO: Row[] = [
   ["Salt Marsh Travel", 410, 12, false],
   ["Wren Analytics", 1890, 18, false],
   ["Postmark Films", 3100, 26, false],
-  ["Cobalt Sound", 520, -25, true],
-  ["Ember Coffee", 215, -18, true],
-  ["Juniper Interiors", 1480, -11, true],
-  ["Alder & Finch", 905, -5, true],
-  ["Marlow Supply", 2600, -2, true],
-  ["Tidewater Co-op", 330, -1, true],
+  ["Cobalt Sound", 520, -25, 0],
+  ["Ember Coffee", 215, -18, 6],
+  ["Juniper Interiors", 1480, -11, 2],
+  ["Alder & Finch", 905, -5, 0],
+  ["Marlow Supply", 2600, -2, 1],
+  ["Tidewater Co-op", 330, -1, -2],
 ];
 const ADMIN: Row[] = [
   ["Sample Client A", 1200, -14, false],
   ["Sample Client B", 450, 9, false],
-  ["Sample Client C", 780, -8, true],
+  ["Sample Client C", 780, -8, 4],
 ];
 
 async function ensureUser(email: string, name: string, plan: "free" | "pro", admin: boolean): Promise<string> {
@@ -75,14 +76,15 @@ async function ensureUser(email: string, name: string, plan: "free" | "pro", adm
 
 async function load(userId: string, rows: Row[]) {
   await sb.from("ch_invoices").delete().eq("user_id", userId);
-  const records = rows.map(([client, dollars, dueOffset, paid]) => ({
+  const records = rows.map(([client, dollars, dueOffset, paidAfter]) => ({
     user_id: userId,
     client_name: client,
     amount_cents: dollars * 100,
     issued_on: day(dueOffset - 14),
     due_on: day(dueOffset),
-    status: paid ? "paid" : "open",
-    paid_on: paid ? day(dueOffset + 3) : null,
+    status: paidAfter === false ? "open" : "paid",
+    // Never later than today, so a paid invoice cannot show a future payment date.
+    paid_on: paidAfter === false ? null : day(Math.min(dueOffset + paidAfter, 0)),
     notes: "",
   }));
   // Insert open invoices last so the free-plan trigger sees a consistent count.

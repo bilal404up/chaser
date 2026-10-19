@@ -38,6 +38,13 @@ export function countText(daysLate: number, paid: boolean, paidLate?: number | n
   return `+${daysLate}d`;
 }
 
+/** The small mono line on a paid strip, under the "paid" caption. Late payments are the only red ones. */
+export function paidLineText(paidLate?: number | null): string {
+  if (paidLate && paidLate > 0) return `Paid ${paidLate}d late`;
+  if (paidLate && paidLate < 0) return "Paid early";
+  return "Paid on time";
+}
+
 /** Class names for the count element. */
 export function countClass(tier: Tier, text: string): string {
   const word = !/\d/.test(text);

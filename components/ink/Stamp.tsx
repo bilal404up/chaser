@@ -121,8 +121,9 @@ export function FinalBox(props: PresetProps) {
 }
 
 /** Paid. `paidOn` is the already formatted date from the shared helper ("Sep 4, 2026"). */
-export function PaidStamp({ paidOn, ...props }: PresetProps & { paidOn?: string }) {
+export function PaidStamp({ paidOn, width = 136, height = 50, angle = -8, ...props }: PresetProps & { paidOn?: string; width?: number; height?: number; angle?: number }) {
+  // The date line only fits on the full-size stamp; compact stamps leave the date to the strip's meta line.
   return (
-    <Stamp text="Paid" ink="carbon" shape="box" angle={-8} width={136} height={50} sub={paidOn} label={paidOn ? `Paid on ${paidOn}` : "Paid"} {...props} />
+    <Stamp text="Paid" ink="carbon" shape="box" angle={angle} width={width} height={height} sub={height >= 40 ? paidOn : undefined} label={paidOn ? `Paid on ${paidOn}` : "Paid"} {...props} />
   );
 }

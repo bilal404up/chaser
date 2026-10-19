@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from "react"
 import { FinalBox, FirmRing, PaidStamp } from "./Stamp"
 import { TickFigure } from "./TickFigure"
-import { countClass, countStyle, countText, figureLabel, tierFor, type Tier } from "./tier"
+import { countClass, countStyle, countText, figureLabel, paidLineText, tierFor, type Tier } from "./tier"
+import { stampAngle, stampSeed } from "./util"
 
 /** The small mono word above the count. */
 function countCaption(daysLate: number, paid: boolean) {
@@ -19,12 +20,26 @@ export function Count({ daysLate, paid = false, paidLate, tickDelay }: CountProp
   const text = countText(daysLate, paid, paidLate)
   const label = figureLabel(daysLate, paid, paidLate)
   const cls = countClass(tier, text)
+  if (paid) {
+    const late = paidLate !== null && paidLate !== undefined && paidLate > 0
+    return (
+      <>
+        <span className="t-meta mb-1.5 block text-ink-2" aria-hidden="true">
+          {countCaption(daysLate, paid)}
+        </span>
+        <span className="t-meta block" style={{ color: late ? "var(--c-stamp)" : "var(--c-ink-2)" }} aria-hidden="true">
+          {paidLineText(paidLate)}
+        </span>
+        <span className="sr-only">{label}</span>
+      </>
+    )
+  }
   return (
     <>
       <span className="t-meta mb-1.5 block text-ink-2" aria-hidden="true">
         {countCaption(daysLate, paid)}
       </span>
-      {tickDelay !== undefined && !paid && daysLate > 0 ? (
+      {tickDelay !== undefined && daysLate > 0 ? (
         <TickFigure value={daysLate} prefix="+" suffix="d" delay={tickDelay} label={label} className={cls} vary />
       ) : (
         <>
@@ -39,10 +54,12 @@ export function Count({ daysLate, paid = false, paidLate, tickDelay }: CountProp
 }
 
 /** The stamp for a tier, or nothing. Stamps only animate when `fresh` (a state change), never on load. */
-export function TierStamp({ tier, paidOn, fresh = false }: { tier: Tier; paidOn?: string; fresh?: boolean }) {
-  if (tier === "t2") return <FirmRing fresh={fresh} />
-  if (tier === "t3") return <FinalBox fresh={fresh} />
-  if (tier === "paid") return <PaidStamp paidOn={paidOn} fresh={fresh} />
+export function TierStamp({ tier, paidOn, fresh = false, stampKey }: { tier: Tier; paidOn?: string; fresh?: boolean; stampKey?: string }) {
+  // The key (invoice id or client name) gives each stamp its own tilt and ink wear, stable across renders.
+  const tilt = stampKey ? { angle: stampAngle(stampKey), seed: stampSeed(stampKey) } : {}
+  if (tier === "t2") return <FirmRing fresh={fresh} {...tilt} />
+  if (tier === "t3") return <FinalBox fresh={fresh} {...tilt} />
+  if (tier === "paid") return <PaidStamp paidOn={paidOn} fresh={fresh} {...tilt} width={82} height={30} />
   return null
 }
 

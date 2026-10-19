@@ -10,16 +10,22 @@ export function CountUp({
   from = 0,
   ms = 900,
   delay = 0,
-  format = (n: number) => String(Math.round(n)),
+  format,
+  prefix = "",
+  suffix = "",
   className,
 }: {
   value: number;
   from?: number;
   ms?: number;
   delay?: number;
+  /** a function cannot cross from a server component, so pass prefix and suffix instead when rendering from a server page */
   format?: (n: number) => string;
+  prefix?: string;
+  suffix?: string;
   className?: string;
 }) {
+  const fmt = format ?? ((n: number) => `${prefix}${Math.round(n)}${suffix}`);
   const { ref, inView } = useInView<HTMLSpanElement>();
   const [n, setN] = useState(value);
 
@@ -41,8 +47,8 @@ export function CountUp({
 
   return (
     <span ref={ref} className={className} style={{ fontVariantNumeric: "tabular-nums" }}>
-      <span aria-hidden="true">{format(n)}</span>
-      <span className="sr-only">{format(value)}</span>
+      <span aria-hidden="true">{fmt(n)}</span>
+      <span className="sr-only">{fmt(value)}</span>
     </span>
   );
 }
