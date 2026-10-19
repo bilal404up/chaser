@@ -16,7 +16,15 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: ReactNode }) {
   const demo = isDemoMode();
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "document.documentElement.classList.add('js');setTimeout(function(){if(!window.__kit)document.documentElement.classList.remove('js')},4000)",
+          }}
+        />
+      </head>
       <body>
         {demo ? <DemoBar /> : null}
         {children}
