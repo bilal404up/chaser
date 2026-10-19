@@ -8,6 +8,8 @@ import { daysBetween, daysOverdue, formatDay, todayIso } from "@/lib/dates"
 import { reminderText, suggestedTone, TONES } from "@/lib/reminders"
 import { FREE_OPEN_LIMIT } from "@/lib/plan"
 import { BlankRoll, Check, Count, StripFace, TierStamp, figureLabel, tierFor, type CSSVars } from "@/components/ink"
+import { CountUp } from "@/components/motion/CountUp"
+import { useInView } from "@/components/motion/useInView"
 
 export type InvoiceRow = {
   id: string
@@ -71,7 +73,8 @@ export default function Board({ invoices, plan, senderName, loadError = false }:
   const [adding, setAdding] = useState(false)
 
   useEffect(() => {
-    if (leavingId && !invoices.some((i) => i.id === leavingId)) setLeavingId(null)
+    // Clear once the open invoice is gone (deleted) or no longer open (marked paid, now in the Paid group).
+    if (leavingId && !invoices.some((i) => i.id === leavingId && i.status === "open")) setLeavingId(null)
   }, [invoices, leavingId])
 
   useEffect(() => {
@@ -93,7 +96,13 @@ export default function Board({ invoices, plan, senderName, loadError = false }:
         return
       }
       setMessage("")
-      if (status === "paid") setFreshId(row.id)
+      if (status === "paid") {
+        // The PAID stamp slams onto the open strip first, then the strip slides out and the list refreshes.
+        setFreshId(row.id)
+        if (!reducedMotion()) await wait(380)
+        setLeavingId(row.id)
+        if (!reducedMotion()) await wait(420)
+      }
       router.refresh()
     } catch {
       setMessage(NETWORK_ERROR)
@@ -131,7 +140,7 @@ export default function Board({ invoices, plan, senderName, loadError = false }:
       row={row}
       index={index++}
       busy={busyId === row.id}
-      leaving={leavingId === row.id}
+      leaving={leavingId === row.id && row.status === "open"}
       fresh={freshId === row.id}
       onReminder={() => setReminderFor(row)}
       onPaid={() => setStatus(row, "paid")}
@@ -163,9 +172,16 @@ export default function Board({ invoices, plan, senderName, loadError = false }:
       ) : null}
 
       <section aria-label="Totals" className="ledger mt-8">
-        <Figure lead label="Overdue, total" total={formatUsd(sum(late))} count={countText(late.length)} alarm={late.length > 0} />
-        <Figure label="Open, not due yet" total={formatUsd(sum(upcoming))} count={countText(upcoming.length)} />
-        <Figure label="Paid this month" total={formatUsd(sum(paidThisMonth))} count={countText(paidThisMonth.length)} />
+        <Figure
+          lead
+          label="Overdue, total"
+          cents={sum(late)}
+          count={countText(late.length)}
+          alarm={late.length > 0}
+          bar={[0, 1, 2].map((k) => sum(late.filter((r) => tierFor(r.days, false) === TONE_TIERS[k]))) as [number, number, number]}
+        />
+        <Figure label="Open, not due yet" cents={sum(upcoming)} count={countText(upcoming.length)} />
+        <Figure label="Paid this month" cents={sum(paidThisMonth)} count={countText(paidThisMonth.length)} />
       </section>
 
       {plan === "free" ? <Meter open={open} /> : null}
@@ -204,11 +220,50 @@ export default function Board({ invoices, plan, senderName, loadError = false }:
   )
 }
 
-function Figure({ label, total, count, lead = false, alarm = false }: { label: string; total: string; count: string; lead?: boolean; alarm?: boolean }) {
+const TONE_TIERS = ["t1", "t2", "t3"] as const
+const TONE_SEG = ["tone-seg--friendly", "tone-seg--firm", "tone-seg--final"]
+
+/** Four-pixel bar split by overdue amount: friendly, firm, final. It grows once in view. */
+function ToneBar({ parts }: { parts: [number, number, number] }) {
+  const { ref, inView } = useInView<HTMLDivElement>()
+  const total = parts[0] + parts[1] + parts[2]
+  if (total <= 0) return null
+  return (
+    <>
+      <div ref={ref} className="tone-bar mt-4" aria-hidden="true" data-in={inView ? "true" : undefined}>
+        {parts.map((c, i) =>
+          c > 0 ? <span key={i} className={`tone-seg ${TONE_SEG[i]}`} style={{ flex: `${c} 1 0` }} /> : null,
+        )}
+      </div>
+      <p className="sr-only">
+        Overdue by tone: friendly {formatUsd(parts[0])}, firm {formatUsd(parts[1])}, final {formatUsd(parts[2])}.
+      </p>
+    </>
+  )
+}
+
+function Figure({
+  label,
+  cents,
+  count,
+  lead = false,
+  alarm = false,
+  bar,
+}: {
+  label: string
+  cents: number
+  count: string
+  lead?: boolean
+  alarm?: boolean
+  bar?: [number, number, number]
+}) {
   return (
     <div className={`ledger-cell ${lead ? "ledger-cell--lead" : ""}`}>
       <p className="t-label text-chalk">{label}</p>
-      <p className={`${lead ? "fig-xl" : "fig-md"} mt-3 ${alarm ? "text-stamp-lit" : ""}`}>{total}</p>
+      <p className={`${lead ? "fig-xl" : "fig-md"} mt-3 ${alarm ? "text-stamp-lit" : ""}`}>
+        <CountUp value={cents} format={(n) => formatUsd(Math.round(n))} />
+      </p>
+      {bar ? <ToneBar parts={bar} /> : null}
       <p className="t-small mt-2 text-chalk">{count}</p>
     </div>
   )
@@ -295,6 +350,8 @@ function Strip({ row, index, busy, leaving, fresh, onReminder, onPaid, onReopen,
   const paidLate = paid && row.paid_on ? daysBetween(row.due_on, row.paid_on) : null
   const tier = tierFor(row.days, paid)
   const paidOn = row.paid_on ? formatDay(row.paid_on) : undefined
+  // A strip that has just been marked paid shows the PAID stamp while it is still open.
+  const stampTier = paid || fresh ? "paid" : tier
   const style: CSSVars = { "--i": Math.min(index, 5), zIndex: menuOpen ? 5 : undefined }
   return (
     <li className={`strip-slot ${index < 6 ? "rise-in" : ""}`} style={style} data-leaving={leaving ? "true" : undefined}>
@@ -307,20 +364,20 @@ function Strip({ row, index, busy, leaving, fresh, onReminder, onPaid, onReopen,
         note={row.notes || undefined}
         amount={formatUsd(row.amount_cents)}
         meta={paid && paidOn ? `Paid ${paidOn}` : `Due ${formatDay(row.due_on)}`}
-        stamp={<TierStamp tier={tier} paidOn={paidOn} fresh={fresh} />}
+        stamp={<TierStamp tier={stampTier} paidOn={paidOn} fresh={fresh} stampKey={row.id} />}
         actions={
           <>
             {!paid && row.days > 0 ? (
-              <button type="button" className="btn-text" onClick={onReminder} disabled={busy}>
+              <button type="button" className="btn-text press" onClick={onReminder} disabled={busy}>
                 Write reminder
               </button>
             ) : null}
             {paid ? (
-              <button type="button" className="btn-text" onClick={onReopen} disabled={busy}>
+              <button type="button" className="btn-text press" onClick={onReopen} disabled={busy}>
                 Reopen
               </button>
             ) : (
-              <button type="button" className="btn-text" onClick={onPaid} disabled={busy}>
+              <button type="button" className="btn-text press" onClick={onPaid} disabled={busy}>
                 Mark paid
               </button>
             )}
@@ -596,7 +653,7 @@ function ReminderDrawer({ row, senderName, onClose }: { row: Row; senderName: st
 
   useEffect(() => {
     if (!copied) return
-    const t = setTimeout(() => setCopied(false), 2000)
+    const t = setTimeout(() => setCopied(false), 1600)
     return () => clearTimeout(t)
   }, [copied])
 
@@ -667,7 +724,13 @@ function ReminderDrawer({ row, senderName, onClose }: { row: Row; senderName: st
         <dt className="t-meta pt-0.5">Subject</dt>
         <dd className="font-semibold">{subject}</dd>
       </dl>
-      <p className="mt-5 whitespace-pre-wrap text-[0.9875rem] leading-relaxed">{body}</p>
+      <div className="mt-5 text-[0.9875rem] leading-relaxed">
+        {body.split("\n").map((line, i) => (
+          <span key={i} className="block rise-in" style={{ "--i": Math.min(i, 12) } as CSSVars}>
+            {line || String.fromCharCode(160)}
+          </span>
+        ))}
+      </div>
     </Drawer>
   )
 }
